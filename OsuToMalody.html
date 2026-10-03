@@ -753,9 +753,10 @@ function parseOsu(text) {
     const f = s.split(',');
     if (f.length < 5) continue;
     const x = parseFloat(f[0]);
+    const y = parseFloat(f[1]); // y 坐标（manía 里通常不用）
     const time = parseFloat(f[2]);
     const type = parseInt(f[3], 10);
-    if (!isFinite(x) || !isFinite(time) || !isFinite(type)) continue;
+    if (!isFinite(x) || !isFinite(y) || !isFinite(time) || !isFinite(type)) continue;
     let endTime = null;
     let customSample = null;
     if (type & 128) {
@@ -768,7 +769,7 @@ function parseOsu(text) {
       const m = /([^:,]+\.(?:wav|ogg|mp3))/gi.exec(rest);
       if (m) customSample = m[0];
     }
-    hitObjects.push({ x, time, type, endTime, customSample });
+    hitObjects.push({ x, y, time, type, endTime, customSample });
   }
 
   // 背景图：Events 里形如 0,0,"file.jpg",0,0
@@ -797,6 +798,9 @@ class OsuTempoMap {
     const byTime = new Map();
     for (const tp of timingPoints || []) {
       if (!tp.uninherited || !(tp.beatLength > 0)) continue; // 只取红线
+      if (!isFinite(tp.beatLength) || tp.beatLength < 0.5 || tp.beatLength > 120000) continue;
+      // 过滤异常红线：mania SV 谱会把绿线控制点误写进 TimingPoints，产生
+      // beatLength 极小（<0.5ms）或极大（>120000ms，甚至 1e15）的伪红线
       byTime.set(tp.time, tp); // 同一时间取最后一条
     }
     const reds = [...byTime.values()].sort((a, b) => a.time - b.time);
