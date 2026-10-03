@@ -6,7 +6,7 @@
  *   node test_inline.mjs <源.mcz> [该.mcz转出的.osz]
  *
  * 检查项:
- *   1) Malody2osu.html 内联的核心代码，与 core.mjs（去掉 export）逐字符一致
+ *   1) OsuToMalody.html 内联的核心代码，与 core.mjs（去掉 export）逐字符一致
  *   2) 若给出 .osz：用内联核心重新转换 <源.mcz>，产物应与该 .osz 字节一致
  *   3) 反向：用内联核心把 .osz 转回 .mcz，校验结构有效
  *
@@ -33,11 +33,11 @@ if (!mcz) {
 }
 
 // ------------------------------------------------ 1) 内联核心与 core.mjs 一致性
-const html = await readFile(join(here, 'Malody2osu.html'), 'utf8');
+const html = await readFile(join(here, 'OsuToMalody.html'), 'utf8');
 const full = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
 // 切掉内联核心末尾那块 UI 注释——它属于界面部分，core.mjs 里没有
 const uiIdx = full.indexOf('* UI');
-if (uiIdx < 0) throw new Error('在 Malody2osu.html 里找不到 UI 分隔注释');
+if (uiIdx < 0) throw new Error('在 OsuToMalody.html 里找不到 UI 分隔注释');
 const coreInline = full.slice(0, full.lastIndexOf('/*', uiIdx)).trim();
 const coreStripped = (await readFile(join(here, 'core.mjs'), 'utf8')).replace(/^export\s+/gm, '').trim();
 

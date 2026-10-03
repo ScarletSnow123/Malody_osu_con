@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build.mjs — 把 core.mjs 内联进 app.template.html，产出单文件应用 Malody2osu.html
+ * build.mjs — 把 core.mjs 内联进 app.template.html，产出单文件应用 OsuToMalody.html
  * 单一事实来源：转换逻辑只写在 core.mjs，CLI 和网页应用共用同一份代码。
  */
 import { readFile, writeFile } from 'node:fs/promises';
@@ -17,7 +17,7 @@ if (!tpl.includes('/*__CORE__*/')) throw new Error('模板里找不到 /*__CORE_
 const inlined = core.replace(/^export\s+/gm, '');
 
 const out = tpl.replace('/*__CORE__*/', inlined.trimEnd());
-const outPath = join(here, 'Malody2osu.html');
+const outPath = join(here, 'OsuToMalody.html');
 await writeFile(outPath, out, 'utf8');
 
 const kb = (Buffer.byteLength(out) / 1024).toFixed(1);

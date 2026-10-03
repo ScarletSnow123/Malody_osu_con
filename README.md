@@ -27,7 +27,7 @@ Two-way conversion. Runs entirely offline, zero dependencies.
 - [Prerequisite: Node.js](#prerequisite-nodejs)
 - [Option 1: GUI — `GUI.bat`](#option-1-gui--guibat-recommended)
 - [Option 2: Drag & drop — `转换.bat`](#option-2-drag--drop--转换bat-fewest-steps)
-- [Option 3: Web app — `Malody2osu.html`](#option-3-web-app--malody2osuhtml)
+- [Option 3: Web app — `OsuToMalody.html` (fallback, not recommended)](#option-3-web-app--osutomalodyhtml-fallback-not-recommended)
 - [Option 4: Command line — `命令行.bat`](#option-4-command-line--命令行bat)
 - [Comparing the four entry points](#comparing-the-four-entry-points)
 - [FAQ](#faq)
@@ -59,17 +59,18 @@ See "Known differences from the reference implementation" in [CREDITS.md](CREDIT
 | --- | --- | --- |
 | Everyday conversion, want to pick files/folders in a window | `GUI.bat` | Has a UI, all options exposed, shows a log |
 | Can't be bothered with a UI, just want to drop files | `转换.bat` | Fewest steps — drop and you're done |
-| Want to carry it on a USB stick, or install nothing | `Malody2osu.html` | A single HTML file, opens in a browser, **no Node.js needed** |
 | Converting dozens of songs / a whole library / scripting | `命令行.bat` | Supports recursion and batch, keeps output organized |
+| On another PC with no way to install Node.js, just one or two packs | `OsuToMalody.html` | A single HTML file, opens in a browser, **no Node.js needed**. A **fallback entry point, not the recommended way** — see [Option 3](#option-3-web-app--osutomalodyhtml-fallback-not-recommended) |
 
-> The `.bat` launchers are Windows-only. `Malody2osu.html` works on any OS with a browser, and
+> The `.bat` launchers are Windows-only. `OsuToMalody.html` works on any OS with a browser, and
 > `cli.mjs` (with Node.js) works cross-platform.
 
 ## Prerequisite: Node.js
 
 The `GUI.bat` / `转换.bat` / `命令行.bat` entry points are just shells — the actual conversion is
-done by `cli.mjs` + `core.mjs`, so **they need Node.js**. **`Malody2osu.html` does not** — the whole
-conversion core is inlined into the page.
+done by `cli.mjs` + `core.mjs`, so **they need Node.js**. **`OsuToMalody.html` does not** — the whole
+conversion core is inlined into the page. That said, the web app is only an **install-free fallback,
+not the recommended way** to use this tool (why: [Option 3](#option-3-web-app--osutomalodyhtml-fallback-not-recommended)).
 
 **No manual configuration needed**: `gui.ps1` and `convert.ps1` look for node automatically, in order:
 
@@ -158,7 +159,7 @@ opens, those items are already in the list.
 
 - Wait 1–2 seconds (PowerShell startup + WinForms init takes a moment)
 - If it never appears: most likely **antivirus blocking the PowerShell script**. Whitelist this
-  folder, or use `Malody2osu.html` instead
+  folder, or use `OsuToMalody.html` instead
 
 ---
 
@@ -218,11 +219,29 @@ or the command line.
 
 ---
 
-## Option 3: Web app — `Malody2osu.html`
+## Option 3: Web app — `OsuToMalody.html` (fallback, not recommended)
+
+> [!IMPORTANT]
+> **This is a fallback entry point, not the recommended way to convert.**
+> For everyday use pick [`GUI.bat`](#option-1-gui--guibat-recommended), for drag & drop use
+> [`转换.bat`](#option-2-drag--drop--转换bat-fewest-steps), and for batch jobs or a whole library use
+> [`命令行.bat`](#option-4-command-line--命令行bat). The web app is only worth it when you are on
+> another machine, cannot install Node.js, and have just one or two packs to convert:
+>
+> - **It treats one pack as one song — no batch, no recursion.** Do not point it at a whole osu!
+>   library such as `D:\osu!\Songs`: if a folder picked with "Choose folder" contains several
+>   `.osu` files, they get **merged into a single `.mcz`** instead of being converted one by one.
+> - **Everything happens in the browser tab's memory.** The whole pack is read into the page and the
+>   output is built there too, so a large pack can make the tab stutter or get killed
+>   (the desktop/CLI versions have no such ceiling).
+> - **The output location is not yours to choose.** Files go to the browser's download folder, and
+>   when several packs are converted at once the browser may ask "allow this site to download
+>   multiple files?".
+> - **It cannot be scripted.** No recursion, no batch, no `-o`.
 
 ### Starting it
 
-**Double-click `Malody2osu.html`** → opens in your default browser.
+**Double-click `OsuToMalody.html`** → opens in your default browser.
 
 **This entry point needs no Node.js and does not depend on any other file in the folder** — the
 entire conversion core is inlined into the HTML. You can copy it to a USB stick, another computer,
@@ -240,8 +259,11 @@ or send it to someone. Fully offline; nothing is uploaded.
 | | Desktop (`GUI.bat`) | Web app |
 | --- | --- | --- |
 | Needs Node.js | Yes | **No** |
+| Batch / whole library | Yes (CLI can recurse) | **No** (several songs merge into one pack) |
+| Large packs | Written to disk, effectively unlimited | Held in tab memory; big packs stutter or fail |
 | Output location | Desktop (configurable) | **Browser download folder** (per browser settings) |
 | Folder selection | Native folder dialog | Browser folder picker |
+| Multiple downloads | Saved one by one, no prompt | Browser may ask to allow multiple downloads |
 
 ---
 
@@ -310,16 +332,20 @@ node cli.mjs "D:\malody-packs" -o "D:\osz-out"
 | --- | --- | --- | --- | --- | --- |
 | `GUI.bat` | Yes | `gui.ps1` `cli.mjs` `core.mjs` | ✅ native dialogs | Configurable (desktop default) | Everyday use |
 | `转换.bat` | Yes | `convert.ps1` `cli.mjs` `core.mjs` | Folder picker only | Desktop / env var | Least effort |
-| `Malody2osu.html` | **No** | **None** | In-browser | Browser download folder | Portable / install-free |
+| `OsuToMalody.html` | **No** | **None** | In-browser | Browser download folder | Portable / install-free (not the recommended way) |
 | `命令行.bat` | Yes | `cli.mjs` `core.mjs` | ✗ | Via `-o` | Batch / scripting |
+
+> The three Node.js entry points are the recommended ones; `OsuToMalody.html` is an
+> **install-free fallback** for converting a pack or two on a machine where you cannot install
+> Node.js — not for a whole library or bulk jobs.
 
 ## FAQ
 
 | Symptom | Cause and fix |
 | --- | --- |
 | Double-clicking a `.bat` flashes a black window and nothing happens | Usually Node.js isn't installed, or `cli.mjs` isn't in the same folder. The script shows a dialog; you can also run `命令行.bat` to see the actual error |
-| `GUI.bat` doesn't respond | Wait 1–2 seconds; if it still doesn't, antivirus is probably blocking the PowerShell script — whitelist the folder, or use `Malody2osu.html` |
-| Antivirus flags it | `.bat` + `.ps1` + PowerShell is a common false-positive pattern. You can use only `Malody2osu.html`, which never touches PowerShell |
+| `GUI.bat` doesn't respond | Wait 1–2 seconds; if it still doesn't, antivirus is probably blocking the PowerShell script — whitelist the folder, or use `OsuToMalody.html` |
+| Antivirus flags it | `.bat` + `.ps1` + PowerShell is a common false-positive pattern. You can use only `OsuToMalody.html`, which never touches PowerShell |
 | Can't find the output | GUI / drag-drop default to the **desktop**; the web app uses the **browser download folder**. In the GUI you can click "Open output folder" |
 | The source file disappeared after importing into Malody | Normal Malody behaviour (import deletes the source). Regenerate with the same steps if needed |
 | The 7K difficulty isn't visible after import | Malody 4.x **pages the song list by key count**; switch to the 7K page. It's not a failed import |
@@ -335,11 +361,11 @@ node cli.mjs "D:\malody-packs" -o "D:\osz-out"
 | `转换.bat` | Drag & drop entry point |
 | `命令行.bat` | Opens a terminal with the working directory already set |
 | `convert.ps1` | Drag & drop logic (parse args, locate Node, summarize, open output folder) |
-| `Malody2osu.html` | Single-file app (build artifact, safe to redistribute) |
+| `OsuToMalody.html` | Single-file app (build artifact, safe to redistribute). **Fallback entry point, not the recommended way** |
 | `core.mjs` | Conversion core: ZIP read/write + timeline + both directions. **Single source of truth** |
 | `cli.mjs` | Command-line entry point (including directory input) |
 | `app.template.html` | UI template (contains the `/*__CORE__*/` placeholder) |
-| `build.mjs` | Inlines `core.mjs` into the template → `Malody2osu.html` |
+| `build.mjs` | Inlines `core.mjs` into the template → `OsuToMalody.html` |
 | `verify.py` | Validates an `.osz`: ZIP integrity, note count, column mapping, timeline, audio headroom |
 | `compare_roundtrip.py` | Compares two `.mc` / `.mcz` (original vs round-tripped), prints per-note deviation |
 | `batch_test.mjs` | Batch osu→mc→osu fidelity test over an osu! library |
