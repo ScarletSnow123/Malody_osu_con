@@ -339,6 +339,8 @@ node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
 | 长按 | `endbeat` ⇄ osu mania `type 128` + `endTime` |
 | 列坐标 | `x = round((column*2+1)/(key*2) * 512)`；反解 `column = floor(x*key/512)` |
 | BGM 事件 | `note[]` 中 `type==1` 且无 `column` 的条目（`SoundCueType.Song`） |
+| 滚动速度 | osu 绿线（继承点）`scroll = -100 / beatLength` ⇄ Malody `effect[].scroll` |
+| 自定义音效 | osu HitObject 的 `hitSample` 文件名 ⇄ Malody `note.sound` |
 | 拍分母 | 288（真实谱面出现频率最高），再按 2、3 约分 |
 | 包结构 | `.mcz` = zip：若干 `<时间戳>.mc` + 音频 + 背景图 |
 
@@ -359,6 +361,37 @@ osu! 允许音符早于首个 BPM 点（全局 1539 个 mania 谱面里 14.9% �
 而 Malody 的 `[-1,0,0]` 是 `EmptyBeat` 哨兵，负小节有风险。
 处理方式：**整小节平移**（保证小节线对齐）+ 在 beat 0 补一个同 BPM 的 `time` 点。
 微小负拍（量化后落到第 0 拍）不会触发平移。
+
+### 滚动速度（SV / 绿线）
+
+osu!mania 用**继承型 timing point**（`uninherited = 0`，`beatLength` 为负）控制卷速：
+
+```
+卷速倍率 = -100 / beatLength        beatLength = -100 → 1.0 倍（正常）
+                                    beatLength = -400 → 0.25 倍
+```
+
+这与 Malody 的 `effect[].scroll` 语义一致（`1.0` 为正常速度），因此直接对应：
+
+| 方向 | 换算 |
+| --- | --- |
+| osu → Malody | `effect.push({ beat, scroll: -100 / beatLength })` |
+| Malody → osu | 写一条 `uninherited=0` 的 timing point，`beatLength = -100 / scroll` |
+
+只用正 `scroll` 值；MalodyV 里少量**负 scroll** 属非标准效果，不转换成绿线。
+实测 1601 张 mania 谱面中 **840 张（52.5%）含绿线**，方向覆盖是必要的。
+
+### 自定义音效（hitSample ⇄ note.sound）
+
+osu! HitObject 第 6 段的 `hitSample` 格式为 `normalSet:additionSet:index:volume:filename`：
+
+```
+单点：  448,192,867,1,0,0:0:0:70:kick.wav
+长按：  192,192,1557,128,0,1611:0:0:0:70:snare.wav
+```
+
+文件名（最后一段）⇄ Malody 的 `note.sound`。无自定义音效时输出保持 `0:0:0:0:`，与传统格式一致。
+注意 **`hitSound` 位掩码（Whistle/Clap/Finish）不在此列**——它没有文件名可对应，见「已知限制」。
 
 ## 版本兼容（Malody V / 4.x）
 
@@ -450,15 +483,18 @@ osu! 允许音符早于首个 BPM 点（全局 1539 个 mania 谱面里 14.9% �
 | --- | --- |
 | Malody 原始 → osz → mcz 往返（5483 音符） | 音符/长按/列/长按标记 **全部一致**；时间偏差最大 0.947ms、平均 0.021ms；BGM offset 精确还原 |
 | 真实 osu! 谱面库批量往返（45 集 / 258 谱 / 703008 样本） | 最大偏差 **2ms**、平均 **0.21ms**、>5ms **0 个**；列不一致 2；长按标记 0；结构问题 0 |
+| 绿线（SV）往返（同一批 **6842 条**） | 卷速倍率**全部一致**，不一致 **0** |
+| 自定义音效往返 | osu `hitSample` 文件名 ⇄ Malody `note.sound` 双向保留（单点、长按分别验证） |
 | 产出 `.mcz` 结构 | 顶层键、meta 键、`mode=0`、`mode_ext.column`、BGM `type=1` 与真实 Malody 谱面一致；零负小节；分母全部整除 288 |
 | ZIP 完整性 | Python `zipfile.testzip()` CRC 全部通过 |
 | 网页应用内联核心 | 与 `core.mjs` **逐字符一致**；正向产物与 CLI **字节一致**；反向产物**语义一致** |
 
 ## 已知限制
 
-- **SV / 滚动速度**：osu 绿线（继承点）与 Malody 的 `effect.scroll` 尚未互相映射。
-  绿线不影响音符时间，只影响视觉滚动速度，因此时间轴与编辑都不受影响。
-- **音效**：osu 的 `hitSound` 与 Malody 的 `sound`(KeySound) 未映射。
+- **音效类型**：osu 的 `hitSound` 位掩码（Whistle / Clap / Finish）**无法映射**——
+  它指的是「用哪一类音效」，而 Malody 的 `sound` 指的是「播放哪个文件」，
+  两者概念不同，缺少音色库就无法对应。
+  可以映射的是 osu HitObject 里**明确写了文件名**的自定义 sample（⇄ `note.sound`）。
 - **模式**：只处理 osu!mania（`Mode: 3`）；其他模式（standard/taiko/catch）会跳过并提示。
   Malody 侧统一输出 `mode: 0`（键模式）。
 - **混键数**：同一谱面集含 4K 和 7K 时会自动拆成多个 `.mcz`。

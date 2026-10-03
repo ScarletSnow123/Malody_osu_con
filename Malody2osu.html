@@ -437,14 +437,20 @@ function convertMcToOsu(mc, ctx = {}) {
 
   const notes = [];
   let skipped = 0;
+  const warnings = [];
 
   for (const n of rawNotes) {
     if (!n || typeof n !== 'object') continue;
     const beat = parseBeat(n.beat);
-    if (beat === null) continue;
+    if (beat === null) {
+      skipped++;
+      continue;
+    }
 
     const type = parseInt(n.type, 10);
-    if (type === 1 && n.column === undefined) continue; // BGM 事件已单独处理
+    const hasColumn = n.column !== undefined;
+    // 有 column 的都是音符（含 BGM 触发事件，带 sound），否则 BGM 事件已单独处理
+    if (!hasColumn && type === 1) continue;
 
     const column = parseInt(n.column, 10);
     if (!isFinite(column) || column < 0 || column >= key) {
@@ -457,12 +463,18 @@ function convertMcToOsu(mc, ctx = {}) {
     const xC = Math.min(511, Math.max(0, x));
 
     const endBeat = parseBeat(n.endbeat);
+    const hit = { x: xC, t, type: 1, end: 0 };
+    if (n.sound) hit.sound = n.sound; // 普通音符的自定义 sample → osu HitObject extras
     if (endBeat !== null && endBeat > beat) {
       const tEnd = Math.round(tempo.toMs(endBeat) + timeShift);
-      notes.push({ x: xC, t, type: 128, end: tEnd });
-    } else {
-      notes.push({ x: xC, t, type: 1, end: 0 });
+      hit.type = 128;
+      hit.end = tEnd;
     }
+    notes.push(hit);
+  }
+
+  if (skipped > 0) {
+    warnings.push(`跳过 ${skipped} 个无法解析的音符（beat 字段缺失或列号越界）`);
   }
 
   notes.sort((a, b) => (a.t - b.t) || (a.x - b.x));
@@ -523,20 +535,45 @@ function convertMcToOsu(mc, ctx = {}) {
   L.push('//Storyboard Sound Samples');
   L.push('');
   L.push('[TimingPoints]');
+  // 红线（BPM 点）+ 绿线（SV 点）合并为一条时间轴输出
+  const tps = [];
   for (const [b, bpm, meter] of tempo.points) {
     const t = Math.round(tempo.toMs(b) + timeShift);
     const msPerBeat = 60000 / bpm;
-    L.push([t, fmtNum(msPerBeat), meter, 2, 0, 100, 1, 0].join(','));
+    tps.push({ time: t, beatLength: msPerBeat, meter: meter, uninherited: true });
+  }
+  for (const e of mc.effect || []) {
+    if (e.scroll == null || typeof e.scroll !== 'number') continue;
+    const s = e.scroll;
+    if (!isFinite(s) || s <= 0) continue; // 只处理正卷速；负值对应非标准效果
+    const b = parseBeat(e.beat);
+    if (b === null) continue;
+    const t = Math.round(tempo.toMs(b) + timeShift);
+    // 卷速 → 绿线 beatLength：scroll = -100 / beatLength
+    const beatLength = Math.round(-100.0 / s * 1000) / 1000;
+    tps.push({ time: t, beatLength, meter: 4, uninherited: false });
+  }
+  tps.sort((a, b) => a.time - b.time);
+  for (const tp of tps) {
+    // 格式：time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
+    const fields = [tp.time, fmtNum(tp.beatLength), tp.meter, 2, 0, 100, tp.uninherited ? 1 : 0, 0];
+    L.push(fields.join(','));
   }
   L.push('');
   L.push('[HitObjects]');
   for (const n of notes) {
-    if (n.type === 128) L.push(`${n.x},192,${n.t},128,0,${n.end}:0:0:0:0:`);
-    else L.push(`${n.x},192,${n.t},1,0,0:0:0:0:`);
+    // hitSample 格式：normalSet:additionSet:index:volume:filename
+    // 无自定义音效时保持与传统输出完全一致（0:0:0:0:，文件名位为空）
+    const sampleTail = n.sound ? `0:0:0:70:${n.sound}` : '0:0:0:0:';
+    if (n.type === 128) L.push(`${n.x},192,${n.t},128,0,${n.end}:${sampleTail}`);
+    else L.push(`${n.x},192,${n.t},1,0,${sampleTail}`);
   }
   L.push('');
 
   const holdCount = notes.filter((n) => n.type === 128).length;
+  const scrollEffects = (mc.effect || []).filter(
+    (e) => e && typeof e.scroll === 'number' && isFinite(e.scroll) && e.scroll > 0
+  ).length;
   return {
     text: L.join('\n'),
     stats: {
@@ -544,6 +581,8 @@ function convertMcToOsu(mc, ctx = {}) {
       notes: notes.length,
       holds: holdCount,
       timingPoints: tempo.points.length,
+      greenLines: scrollEffects,
+      soundNotes: notes.filter((n) => n.sound).length,
       skipped,
       audioLeadIn,
       firstMs: notes.length ? notes[0].t : 0,
@@ -553,6 +592,7 @@ function convertMcToOsu(mc, ctx = {}) {
       creator,
       version,
     },
+    warnings,
   };
 }
 
@@ -723,11 +763,18 @@ function parseOsu(text) {
     const type = parseInt(f[3], 10);
     if (!isFinite(x) || !isFinite(time) || !isFinite(type)) continue;
     let endTime = null;
+    let customSample = null;
     if (type & 128) {
       const et = parseFloat(String(f[5] || '').split(':')[0]);
       if (isFinite(et)) endTime = et;
     }
-    hitObjects.push({ x, time, type, endTime });
+    // 提取自定义 sample 文件名（格式：...:volume:filename.wav，可能带尾随冒号）
+    if (f.length > 5) {
+      const rest = f.slice(5).join(',');
+      const m = /([^:,]+\.(?:wav|ogg|mp3))/gi.exec(rest);
+      if (m) customSample = m[0];
+    }
+    hitObjects.push({ x, time, type, endTime, customSample });
   }
 
   // 背景图：Events 里形如 0,0,"file.jpg",0,0
@@ -834,6 +881,20 @@ function osuToMc(osu, ctx = {}) {
   const denom = Number(ctx.denom) || OSU_BEAT_DENOM;
   const tempo = new OsuTempoMap(osu.timingPoints);
 
+  // ---- 绿线 (SV) 收集：继承型（uninherited 为 false）且 beatLength < 0 的点控制卷速 ----
+  // osu!mania 绿线的 beatLength 为负，卷速倍率 = -100 / beatLength（-100 → 1.0，-400 → 0.25）
+  // 与 Malody effect[].scroll 的语义一致（1.0 为正常速度，负值/超大幅度属非标准效果）。
+  const greens = [];
+  for (const tp of osu.timingPoints || []) {
+    if (tp.uninherited === false && tp.beatLength < 0 && isFinite(tp.beatLength)) {
+      const scroll = -100.0 / tp.beatLength;
+      if (isFinite(scroll) && scroll > 0) {
+        greens.push({ time: tp.time, scroll });
+      }
+    }
+  }
+  greens.sort((a, b) => a.time - b.time);
+
   // ---- 收集音符的原始拍值（先不量化）----
   const raw = [];
   for (const o of osu.hitObjects) {
@@ -842,7 +903,7 @@ function osuToMc(osu, ctx = {}) {
     col = Math.min(key - 1, Math.max(0, col));
     const b = tempo.toBeat(o.time);
     const eb = o.endTime != null && o.endTime > o.time ? tempo.toBeat(o.endTime) : null;
-    raw.push({ ms: o.time, col, b, eb });
+    raw.push({ ms: o.time, col, b, eb, customSample: o.customSample || null });
   }
   raw.sort((a, b) => a.ms - b.ms || a.col - b.col);
 
@@ -880,12 +941,16 @@ function osuToMc(osu, ctx = {}) {
     });
   }
 
-  // ---- note: 音符与长按 ----
+  // ---- note: 音符与长按（含自定义 sample → Malody note.sound）----
   const notes = raw.map((r) => {
     const beat = toBeatArray(r.b + shift, denom);
     if (r.eb != null) return { beat, endbeat: toBeatArray(r.eb + shift, denom), column: r.col };
     return { beat, column: r.col };
   });
+  // 把 osu 自定义 sample 映射到 Malody note.sound（仅对非 BGM 音符）
+  for (let i = 0; i < notes.length && i < raw.length; i++) {
+    if (raw[i].customSample) notes[i].sound = raw[i].customSample;
+  }
   const holdCount = notes.filter((n) => n.endbeat).length;
 
   let minSection = 0;
@@ -961,7 +1026,12 @@ function osuToMc(osu, ctx = {}) {
 
   const mc = { meta, time: timeArr, note: notes };
   if (style === 'full') {
-    mc.effect = []; // 绿线(SV)暂不映射
+    // 绿线 (SV) 映射为 Malody effect[]：{ beat, scroll }
+    const effect = greens.map((g) => ({
+      beat: toBeatArray(tempo.toBeat(g.time) + shift, denom),
+      scroll: round6(g.scroll),
+    }));
+    mc.effect = effect;
     mc.extra = { test: { divide: 4, speed: 100, save: 0, lock: 0, edit_mode: 0 } };
   }
   const ordered = style === 'full'
@@ -975,6 +1045,8 @@ function osuToMc(osu, ctx = {}) {
       notes: notes.length - 1,
       holds: holdCount,
       timingPoints: timeArr.length,
+      greenLines: greens.length,
+      soundNotes: raw.filter((r) => r.customSample).length,
       beatShift: shift,
       minSection,
       title,

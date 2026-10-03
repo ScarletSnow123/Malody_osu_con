@@ -16,7 +16,7 @@
  */
 import { readFile, writeFile, mkdir, stat, readdir } from 'node:fs/promises';
 import { dirname, join, basename, resolve, extname } from 'node:path';
-import { convertMczToOsz, convertOszToMcz, parseOsu, osuToMc, writeZip } from './core.mjs';
+import { convertMczToOsz, convertOszToMcz, convertMcToOsu, parseOsu, osuToMc, writeZip } from './core.mjs';
 
 const AUDIO_EXT = /\.(mp3|ogg|wav|m4a|aac|flac)$/i;
 const IMAGE_EXT = /\.(jpg|jpeg|png|bmp|gif)$/i;
@@ -40,6 +40,15 @@ function parseArgs(argv) {
     else if (!a.startsWith('-')) args.input = a;
   }
   return args;
+}
+
+/** 从 Malody meta 或文件名构造安全的 osu! 文件名 */
+function safeOsuName(mc) {
+  const meta = mc.meta || {};
+  const song = meta.song || {};
+  let name = String(song.title || meta.creator || '').replace(/[\\/:*?"<>|]/g, '_');
+  name = name.replace(/\s+/g, ' ') + ' ' + String(meta.version || '4K').replace(/[\\/:*?"<>|]/g, '_');
+  return name.replace(/[\\/:*?"<>|]/g, '_').trim();
 }
 
 const mb = (n) => (n / 1048576).toFixed(2) + ' MB';
@@ -153,11 +162,36 @@ async function convertOneFile(srcPath, outBase, verbose) {
       console.log('输入: ' + srcPath);
       console.log('输出: ' + outPath + '  (' + (Buffer.byteLength(json) / 1024).toFixed(1) + ' KB)');
       console.log('');
-      console.log(`  ${stats.key}K | 音符 ${stats.notes} 长按 ${stats.holds} | BPM点 ${stats.timingPoints}`);
+      console.log(`  ${stats.key}K | 音符 ${stats.notes} 长按 ${stats.holds} | BPM点 ${stats.timingPoints} | 绿线 ${stats.greenLines} | 自定义音效 ${stats.soundNotes}`);
       console.log(`  首/末 ${(stats.firstMs / 1000).toFixed(3)}s / ${(stats.lastMs / 1000).toFixed(3)}s`);
       console.log('  注意: 单文件输出不含音频/背景，需自行放入 Malody 谱面包');
     } else {
       console.log('  → ' + basename(outPath) + '  (' + (Buffer.byteLength(json) / 1024).toFixed(1) + ' KB)');
+    }
+    produced.push(outPath);
+  } else if (ext === '.mc') {
+    const buf = await readFile(srcPath);
+    if (verbose) console.log('输入: ' + srcPath + '  (' + mb(buf.length) + ')');
+    const mc = JSON.parse(new TextDecoder('utf-8').decode(buf));
+    const osuName = safeOsuName(mc);
+    const res = convertMcToOsu(mc, {
+      audioName: convOpts.audioName || '',
+      backgroundName: '',
+      shiftMs: convOpts.shiftMs,
+      noSync: convOpts.noSync,
+      keyOverride: args.key,
+    });
+    const outPath = outBase + '.osu';
+    await mkdir(dirname(outPath), { recursive: true });
+    await writeFile(outPath, res.text);
+    if (verbose) {
+      console.log('输出: ' + outPath + '  (' + mb(Buffer.byteLength(res.text)) + ')');
+      const s = res.stats;
+      console.log(`  ${s.key}K | 音符 ${s.notes} 长按 ${s.holds} | BPM点 ${s.timingPoints} | 绿线 ${s.greenLines} | 自定义音效 ${s.soundNotes}`);
+      if (res.warnings && res.warnings.length) printWarnings(res.warnings);
+      console.log('  注意: 单文件输出不含音频/背景，需自行放入 osu! 歌曲文件夹');
+    } else {
+      console.log('  → ' + basename(outPath) + '  (' + mb(Buffer.byteLength(res.text)) + ')');
     }
     produced.push(outPath);
   } else {
@@ -237,7 +271,7 @@ if (st.isDirectory()) {
   }
 } else {
   const ext = extname(inputPath).toLowerCase();
-  if (!/\.(mcz|osz|zip|osu)$/i.test(ext)) {
+  if (!/\.(mcz|osz|zip|osu|mc)$/i.test(ext)) {
     console.error('无法识别的输入类型: ' + ext);
     process.exit(2);
   }

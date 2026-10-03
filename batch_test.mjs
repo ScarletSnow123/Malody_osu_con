@@ -33,6 +33,8 @@ const allDev = [];
 const colMismatch = [];
 const holdMismatch = [];
 const structIssues = [];
+const greenMismatch = [];
+let greenTotal = 0;
 const chartStats = [];
 
 const dirs = (await readdir(SONGS, { withFileTypes: true }))
@@ -147,6 +149,27 @@ for (const d of dirs) {
         if (d2 > chartMax) chartMax = d2;
       }
     }
+    // ---- 绿线 (SV) 往返校验 ----
+    // 源绿线：继承型 (uninherited=false) 且 beatLength < 0，卷速 = -100/beatLength
+    const greenOf = (osu) =>
+      osu.timingPoints
+        .filter((t) => t.uninherited === false && t.beatLength < 0)
+        .map((t) => Math.round((-100 / t.beatLength) * 1000) / 1000)
+        .sort((p, q) => p - q);
+    const sg = greenOf(src);
+    const bg = greenOf(pb);
+    greenTotal += sg.length;
+    if (sg.length !== bg.length) {
+      greenMismatch.push(`${chart.from}: 绿线数 ${sg.length} vs ${bg.length}`);
+    } else {
+      for (let i = 0; i < sg.length; i++) {
+        if (Math.abs(sg[i] - bg[i]) > 0.002) {
+          greenMismatch.push(`${chart.from}: 卷速 ${sg[i]} vs ${bg[i]}`);
+          break;
+        }
+      }
+    }
+
     chartStats.push({ name: chart.from, max: chartMax, n: a.length });
   }
 }
@@ -178,6 +201,8 @@ console.log('  >5ms 的样本    : ' + over5);
 console.log('');
 console.log('列映射不一致   : ' + colMismatch.length + (colMismatch.length ? '  例: ' + colMismatch.slice(0, 3).join(', ') : ''));
 console.log('长按标记不一致 : ' + holdMismatch.length + (holdMismatch.length ? '  例: ' + holdMismatch.slice(0, 3).join(', ') : ''));
+console.log('绿线 (SV)      : 源共 ' + greenTotal + ' 条，不一致 ' + greenMismatch.length +
+  (greenMismatch.length ? '  例: ' + greenMismatch.slice(0, 3).join(' | ') : ''));
 console.log('结构问题       : ' + structIssues.length);
 for (const s of structIssues.slice(0, 8)) console.log('  ! ' + s);
 
