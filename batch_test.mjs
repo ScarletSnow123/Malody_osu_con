@@ -136,15 +136,42 @@ for (const d of dirs) {
     const a = norm(a0);
     const b = norm(b0);
 
+    // 列/长按按「就近配对」比较。
+    // 时间量化到整数毫秒后，同一毫秒内的多个音符排序顺序可能与源不同，
+    // 若按位次逐一对比会把这种情况误报成列不一致。
+    // 这里在 ±3 位窗口内寻找时间最近且尚未使用的配对。
+    const used = new Uint8Array(b.length);
     let chartMax = 0;
     for (let i = 0; i < a.length; i++) {
-      if (a[i].col !== b[i].col) colMismatch.push(`${chart.from}#${i}`);
-      if (a[i].hold !== b[i].hold) holdMismatch.push(`${chart.from}#${i}`);
-      const d1 = Math.abs(a[i].t - b[i].t);
-      allDev.push(d1);
-      if (d1 > chartMax) chartMax = d1;
-      if (a[i].hold && b[i].hold && a[i].end != null && b[i].end != null) {
-        const d2 = Math.abs(a[i].end - b[i].end);
+      // 候选打分：列相同的优先（权重远大于时间差），其次时间最近
+      let pick = -1;
+      let bestScore = Infinity;
+      let bestD = Infinity;
+      for (let k = -3; k <= 3; k++) {
+        const j = i + k;
+        if (j < 0 || j >= b.length || used[j]) continue;
+        const d = Math.abs(a[i].t - b[j].t);
+        if (d > 3) continue;
+        const score = (a[i].col === b[j].col ? 0 : 1000) + d;
+        if (score < bestScore) {
+          bestScore = score;
+          bestD = d;
+          pick = j;
+        }
+      }
+      if (pick < 0) {
+        colMismatch.push(`${chart.from}#${i} 无法配对`);
+        continue;
+      }
+      used[pick] = 1;
+      if (a[i].col !== b[pick].col) {
+        colMismatch.push(`${chart.from}#${i} col ${a[i].col}->${b[pick].col}`);
+      }
+      if (a[i].hold !== b[pick].hold) holdMismatch.push(`${chart.from}#${i}`);
+      allDev.push(bestD);
+      if (bestD > chartMax) chartMax = bestD;
+      if (a[i].hold && b[pick].hold && a[i].end != null && b[pick].end != null) {
+        const d2 = Math.abs(a[i].end - b[pick].end);
         allDev.push(d2);
         if (d2 > chartMax) chartMax = d2;
       }
