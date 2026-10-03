@@ -48,7 +48,7 @@ Malody 能**直接读取** osu! 谱面来玩，但**无法编辑**——这是�
 这个方向**并非本项目独有**：rmstZ 等通用转换器同样支持 osu → mc，覆盖的格式还更多。
 本项目的定位是把这一方向做成一键化、可脚本化的工具——整包直接互转、四种入口、
 可批量与递归整个曲库，且音画同步换算经过真实谱面实测校准。
-具体差异见 [CREDITS.md](CREDITS.md) 的「参考实现的已知差异」。
+具体差异见 [CREDITS.zh-CN.md](CREDITS.zh-CN.md) 的「参考实现的已知差异」。
 
 ## 该用哪个入口
 
@@ -528,7 +528,7 @@ node batch_test.mjs "D:\osu!\Songs" 45
 
 转换逻辑（`core.mjs`）为**独立实现，未直接复制任何一方的代码**。
 
-完整出处、参考到的具体实现、授权说明与已知差异，见 **[CREDITS.md](CREDITS.md)**。
+完整出处、参考到的具体实现、授权说明与已知差异，见 **[CREDITS.zh-CN.md](CREDITS.zh-CN.md)**。
 
 > ⚠️ rmstZ 仓库未附带 LICENSE，本项目**不转载、不分发**该 HTML 文件；
 > 需要请前往[官方页面](https://lrfasd.github.io/rmstZ/)获取。
@@ -541,7 +541,7 @@ node batch_test.mjs "D:\osu!\Songs" 45
 Copyright (c) 2026 ScarletSnow123
 ```
 
-MIT 只覆盖本项目自己的代码。第三方资料的出处与授权情况见 [CREDITS.md](CREDITS.md)：
+MIT 只覆盖本项目自己的代码。第三方资料的出处与授权情况见 [CREDITS.zh-CN.md](CREDITS.zh-CN.md)：
 
 - **rmstZ** 未附带 LICENSE，本项目既不转载也不分发其文件，仅在文档中致谢
 - **rconv** 为独立第三方项目，本项目仅参考其公开的格式类型定义

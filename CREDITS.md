@@ -1,100 +1,110 @@
-# 致谢与第三方说明
+**English** | [简体中文](CREDITS.zh-CN.md)
 
-本项目的谱面格式逆向工作参考了以下第三方资料。
+# Credits and Third-Party Notes
 
-> **转换逻辑（`core.mjs`）为独立实现，未直接复制任何一方的代码。**
-> ZIP 读写使用浏览器原生 `DecompressionStream` / `CompressionStream`；
-> 时间轴积分、负小节平移、音画同步模型均为独立推导，并用真实谱面做了双向验证。
+The chart-format reverse-engineering in this project referenced the following third-party material.
+
+> **The conversion logic (`core.mjs`) is an independent implementation and does not copy code from
+> either party.**
+> ZIP reading/writing uses the browser-native `DecompressionStream` / `CompressionStream`;
+> the timeline integration, negative-measure shifting and audio-sync model were derived
+> independently and verified in both directions against real charts.
 
 ---
 
-## rmstZ —— 主要参考
+## rmstZ — the primary reference
 
 |  |  |
 | --- | --- |
-| 项目 | **rmstZ** —— *TransData for Music Games* |
-| 作者 | **lrfasd** |
-| 项目主页 | <https://lrfasd.github.io/rmstZ/> |
-| 源码仓库 | <https://github.com/lrfasd/lrfasd.github.io> |
-| 版权署名 | `Copyright © 心のsky Group` |
-| 本文件版本 | [rmstZ_20221022.html](https://lrfasd.github.io/rmstZ/rmstZ_20221022.html) |
-| 更新历史 | <https://lrfasd.github.io/rmstZ/WHATSNEW.html> |
+| Project | **rmstZ** — *TransData for Music Games* |
+| Author | **lrfasd** |
+| Project page | <https://lrfasd.github.io/rmstZ/> |
+| Source repository | <https://github.com/lrfasd/lrfasd.github.io> |
+| Copyright notice | `Copyright © 心のsky Group` |
+| Version used | [rmstZ_20221022.html](https://lrfasd.github.io/rmstZ/rmstZ_20221022.html) |
+| Changelog | <https://lrfasd.github.io/rmstZ/WHATSNEW.html> |
 
-一个在浏览器里运行的音游谱面转换工具，覆盖 30 余种谱面格式的读写、
-包文件资源提取、音频波形采谱、谱面绘图等。本次逆向主要参考它确认 Malody 侧的格式语义。
+A browser-based rhythm-game chart converter covering read/write for 30+ chart formats, package
+resource extraction, waveform-based charting, chart rendering and more. This reverse-engineering
+mainly used it to confirm the Malody-side format semantics.
 
-### 具体参考到的内容
+### What was specifically referenced
 
-| 内容 | rmstZ 中的对应实现 |
+| Item | Corresponding implementation in rmstZ |
 | --- | --- |
-| Malody 拍的取值语义 `a + b/c` | `fromBeatArray()` 里的 `b.fAdd(c.fDiv(d))` |
-| 列号 ⇄ x 坐标换算 | `trackToX()` = `(column*2+1)/(key*2)` |
-| 长按与 BGM 事件的判定 | `type == 1` 且无 `column` 的条目视为音频事件 |
-| BGM `offset` 与 osu `AudioLeadIn` 的写法 | `toOsuText()` |
-| 写出 `.mc` 时的拍分母策略 | `toBeatArray()` 取 768 再按 2、3 约分（本项目改用实测更常见的 288） |
-| 各格式输入/输出能力的边界 | `SupportFile` / `SupportAudio` / `SupportImage` / `SupportPkg` 列表 |
+| Malody beat value semantics `a + b/c` | `b.fAdd(c.fDiv(d))` inside `fromBeatArray()` |
+| Column ⇄ x coordinate conversion | `trackToX()` = `(column*2+1)/(key*2)` |
+| Detecting long notes vs BGM events | An entry with `type == 1` and no `column` is an audio event |
+| Writing BGM `offset` into osu `AudioLeadIn` | `toOsuText()` |
+| Beat denominator strategy when writing `.mc` | `toBeatArray()` uses 768, then reduces by 2 and 3 (this project uses 288, the most common value observed) |
+| Boundaries of per-format input/output support | The `SupportFile` / `SupportAudio` / `SupportImage` / `SupportPkg` lists |
 
-### ⚠️ 关于转载
+### ⚠️ About redistribution
 
-- rmstZ 的仓库**未附带任何 LICENSE**：GitHub API 查询 license 返回 **404**，仓库元数据 `license: null`
-- 文件内署名为 `Copyright © 心のsky Group`（该署名也会被绘制进生成的谱面预览图）
-- 作者主页表述为「代码开源，避免后门，保证使用安全」，即本意为公开可查阅
-- 仓库话题标签：`rmstz`、`musicgame`
+- The rmstZ repository **ships no LICENSE**: the GitHub API returns **404** for its license, and the
+  repository metadata has `license: null`
+- The in-file notice is `Copyright © 心のsky Group` (that notice is also drawn into the generated
+  chart preview images)
+- The author's page states the tools are "open source, to avoid backdoors" — i.e. intended to be
+  publicly readable
+- Repository topics: `rmstz`, `musicgame`
 
-**因此本项目不转载、不分发 rmstZ 的 HTML 文件。** 需要使用请前往
-[官方页面](https://lrfasd.github.io/rmstZ/) 获取。
+**This project therefore does not redistribute or repackage rmstZ's HTML file.** To use it, get it
+from the [official page](https://lrfasd.github.io/rmstZ/).
 
-另外该文件运行时还依赖同目录的 `search.js` / `fileInfo.js` / `addin.js` / `imd.js`，
-单独一份 HTML 并不完整。
+That file also depends on `search.js` / `fileInfo.js` / `addin.js` / `imd.js` in the same directory,
+so a lone copy of the HTML is incomplete.
 
-> 补充：`github.com/mirrorange/lrfasd` 经 API 查证**只是 fork**（`"fork": true`，2023-10-05 创建、未修改），不是源头。
+> Aside: `github.com/mirrorange/lrfasd` was checked via the API and is **only a fork**
+> (`"fork": true`, created 2023-10-05, unmodified) — not the origin.
 
 ---
 
-## rconv —— Malody 格式类型定义
+## rconv — Malody format type definitions
 
-[Nim](https://nim-lang.org/) 编写的音游谱面转换库。其 Malody 类型定义是本次逆向的重要旁证
-（rmstZ 侧重实现，rconv 侧重类型声明，两者交叉验证）。
+A rhythm-game chart conversion library written in [Nim](https://nim-lang.org/). Its Malody type
+definitions were an important corroborating source for this reverse-engineering (rmstZ leans toward
+implementation, rconv toward type declarations; the two were cross-checked).
 
-- 文档：<https://prefixaut.github.io/rconv/rconv/malody.html>
-- 源码：<https://github.com/prefixaut/rconv>
+- Documentation: <https://prefixaut.github.io/rconv/rconv/malody.html>
+- Source: <https://github.com/prefixaut/rconv>
 
-| 内容 | 用于确认 |
+| Item | Used to confirm |
 | --- | --- |
-| `Beat = array[3, int]`（小节 / snap 索引 / snap 大小） | 拍三分量的语义 |
-| `SoundCueType`：`Effect=0` / `Song=1` / `KeySound=2` | BGM 事件 `type: 1` 的含义 |
-| `ChartMode`：`Key=0`、`Catch=3`、`Pad=4`、`Taiko=5`、`Ring=6`、`Slide=7` | 模式编号 |
-| `SongData`：`title` / `titleorg`、`artist` / `artistorg` | 「罗马音 / 原文」的区分 |
-| `ModeData.bar_begin` | 「首个音符索引 − 1，或 0」 |
-| `EmptyBeat = [-1, 0, 0]` | 负小节风险的判断依据 |
+| `Beat = array[3, int]` (measure / snap index / snap size) | The semantics of the three beat components |
+| `SoundCueType`: `Effect=0` / `Song=1` / `KeySound=2` | The meaning of `type: 1` on BGM events |
+| `ChartMode`: `Key=0`, `Catch=3`, `Pad=4`, `Taiko=5`, `Ring=6`, `Slide=7` | Mode numbering |
+| `SongData`: `title` / `titleorg`, `artist` / `artistorg` | The romanized / original distinction |
+| `ModeData.bar_begin` | "Index of the first note minus 1, or 0" |
+| `EmptyBeat = [-1, 0, 0]` | The basis for treating negative measures as risky |
 
 ---
 
-## 其他
+## Other
 
-### osu! 谱面格式
+### osu! chart format
 
-`.osu` 的 `[General]` / `[TimingPoints]` / `[HitObjects]` 字段、
-mania 长按的 `type 128` + `endTime` 编码、列坐标 `floor(x * key / 512)` 等，
-依据 osu! 公开格式说明，并在 1539 个 mania 谱面样本上做了批量验证。
+The `.osu` `[General]` / `[TimingPoints]` / `[HitObjects]` fields, the mania long-note encoding
+(`type 128` + `endTime`), the column coordinate formula `floor(x * key / 512)`, and so on are based
+on osu!'s public format documentation, and were batch-verified against 1539 mania charts.
 
-### 谱面样本
+### Chart samples
 
-格式逆向所用的 4 个真实 `.mcz` 样本，时间跨度 2025-11 ~ 2026-09，
-共 9 个 `.mc`。正是这批样本暴露了格式存在 A / B 两种方言。
+The 4 real `.mcz` samples used for reverse-engineering span 2025-11 to 2026-09 and contain 9 `.mc`
+files in total. It was these samples that revealed the existence of the A / B dialects.
 
-### 兼容性验证环境
+### Compatibility verification environment
 
-- **MalodyV**（Steam 版）：确认导入成功、原样接收未改写
-- **Malody 4.3.7**：确认导入成功（4K 5 个 + 7K 6 个难度）；其曲库 61 个 `.mc`
-  与可执行文件字符串用于格式吻合度核对
+- **MalodyV** (Steam version): import confirmed, file accepted as-is without rewriting
+- **Malody 4.3.7**: import confirmed (4K 5 difficulties + 7K 6 difficulties); its library of 61
+  `.mc` files and its executable's strings were used for the field-agreement check
 
-### 参考实现的已知差异
+### Known differences from the reference implementation
 
-本项目在以下方面**有意不采用** rmstZ 的做法：
+This project **deliberately does not** follow rmstZ's approach in the following areas:
 
-| 项目 | rmstZ | 本项目 | 原因 |
+| Area | rmstZ | This project | Reason |
 | --- | --- | --- | --- |
-| 音画同步 | BGM `offset` 仅写入 osu 的 `AudioLeadIn`，不做时间平移 | 按「音频位置 = 谱面时间 − offset」整体换算 | 实测 Malody 导出的 osu 一律 `AudioLeadIn: 0` + 负 T0，说明 offset 应以时间轴平移表达 |
-| 拍分母 | 768 | 288 | 4 个真实 `.mcz` 共 9 个谱面里 288 是出现频率最高的 snap 大小 |
-| 负拍处理 | 未特殊处理 | 整小节平移 + 在 beat 0 补 BPM 点 | Malody 的 `[-1,0,0]` 是 `EmptyBeat` 哨兵，负小节有风险 |
+| Audio sync | BGM `offset` is written only into osu's `AudioLeadIn`, with no timeline shift | Converted wholesale under "audio position = chart time − offset" | osu! files exported by Malody are consistently `AudioLeadIn: 0` with a negative T0, indicating offset should be expressed as a timeline shift |
+| Beat denominator | 768 | 288 | Across the 9 charts in the 4 real `.mcz` files, 288 is the most frequent snap size |
+| Negative beats | Not specially handled | Shift by whole measures + add a BPM point at beat 0 | Malody's `[-1,0,0]` is the `EmptyBeat` sentinel, so negative measures are risky |
