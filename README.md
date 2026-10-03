@@ -1,462 +1,492 @@
-# Malody ⇄ osu!mania 转换器
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-双向转换，纯本地运行、零依赖、离线可用。
+# Malody ⇄ osu!mania Converter
 
-| 方向 | 用途 |
+Two-way conversion. Runs entirely offline, zero dependencies.
+
+| Direction | What it's for |
 | --- | --- |
-| `.mcz` → `.osz` | Malody 谱面拿去 osu! 玩 |
-| `.osz` / 含 .osu 的 zip / osu! 歌曲文件夹 → `.mcz` | **osu! 谱面拿去 Malody 编辑器修改** |
+| `.mcz` → `.osz` | Play a Malody chart in osu! |
+| `.osz` / zip containing `.osu` / osu! song folder → `.mcz` | **Edit an osu! chart in the Malody editor** |
 
 > [!WARNING]
-> **本项目处于测试阶段（Beta），仍可能存在 bug。**
+> **This project is in beta — expect bugs.**
 >
-> 转换核心已在 258 张真实 osu!mania 谱面、**661,862 个音符**上做过往返比对
-> （复现命令见下方「已验证」），但 osu! 谱面与 Malody 各版本的写法差异很大，
-> 仍有尚未覆盖的边界情况。遇到任何异常——音画不同步、音符错位或丢失、
-> 导入失败、程序崩溃等——都欢迎到
-> [Issues](https://github.com/ScarletSnow123/Malody_osu_con/issues) 反馈。
-> **附上出问题的谱面或完整错误信息**能大幅加快排查，非常感谢。
+> The conversion core has been round-trip tested against 258 real osu!mania charts
+> (**661,862 notes**) — reproduction command in [Verified](#verified) below — but osu!
+> charts and Malody versions vary a lot, so edge cases remain.
+> If you hit anything odd — audio desync, misplaced or missing notes, import failures,
+> crashes — please [open an issue](https://github.com/ScarletSnow123/Malody_osu_con/issues).
+> **Attaching the chart that failed, or the full error message**, speeds up diagnosis a lot.
+> Thanks!
 
-## 目录
+## Contents
 
-- [为什么需要反向转换](#为什么需要反向转换)
-- [该用哪个入口](#该用哪个入口)
-- [共同前提：Node.js](#共同前提nodejs)
-- [方式一：图形界面 —— `GUI.bat`](#方式一图形界面--guibat推荐)
-- [方式二：拖放 —— `转换.bat`](#方式二拖放--转换bat步骤最少)
-- [方式三：网页应用 —— `Malody2osu.html`](#方式三网页应用--malody2osuhtml)
-- [方式四：命令行 —— `命令行.bat`](#方式四命令行--命令行bat)
-- [四个入口对比](#四个入口对比)
-- [常见问题](#常见问题)
-- [文件说明](#文件说明)
-- [格式依据](#格式依据)
-- [版本兼容（Malody V / 4.x）](#版本兼容malody-v--4x)
-- [已验证](#已验证)
-- [已知限制](#已知限制)
-- [致谢](#致谢)
-- [许可证](#许可证)
+- [Why reverse conversion](#why-reverse-conversion)
+- [Which entry point to use](#which-entry-point-to-use)
+- [Prerequisite: Node.js](#prerequisite-nodejs)
+- [Option 1: GUI — `GUI.bat`](#option-1-gui--guibat-recommended)
+- [Option 2: Drag & drop — `转换.bat`](#option-2-drag--drop--转换bat-fewest-steps)
+- [Option 3: Web app — `Malody2osu.html`](#option-3-web-app--malody2osuhtml)
+- [Option 4: Command line — `命令行.bat`](#option-4-command-line--命令行bat)
+- [Comparing the four entry points](#comparing-the-four-entry-points)
+- [FAQ](#faq)
+- [Files](#files)
+- [Format notes](#format-notes)
+- [Version compatibility (Malody V / 4.x)](#version-compatibility-malody-v--4x)
+- [Verified](#verified)
+- [Known limitations](#known-limitations)
+- [Credits](#credits)
+- [License](#license)
 
-## 为什么需要反向转换
+## Why reverse conversion
 
-Malody 能**直接读取** osu! 谱面来玩，但**无法编辑**——这是两条独立代码路径：
-读取走的是 osu 导入通道（解析后只读播放），而编辑器只认 Malody 自己的 `.mc` 谱面模型
-（`meta / time / effect / note / extra` + `Beat[a,b,c]`），osu 的数据没有回写通道。
-所以要让 osu 谱面变得可编辑，必须先转成 `.mc`。
+Malody can **read** osu! charts directly to play them, but it **cannot edit** them — these are two
+separate code paths. Reading goes through the osu! import channel (parse and play, read-only), while
+the editor only understands Malody's own `.mc` chart model
+(`meta / time / effect / note / extra` + `Beat[a,b,c]`). There is no write-back path for osu! data.
+So to make an osu! chart editable, it has to be converted to `.mc` first.
 
-这个方向**并非本项目独有**：rmstZ 等通用转换器同样支持 osu → mc，覆盖的格式还更多。
-本项目的定位是把这一方向做成一键化、可脚本化的工具——整包直接互转、四种入口、
-可批量与递归整个曲库，且音画同步换算经过真实谱面实测校准。
-具体差异见 [CREDITS.md](CREDITS.md) 的「参考实现的已知差异」。
+This direction **is not unique to this project** — general-purpose converters such as rmstZ also
+support osu → mc, and cover many more formats. What this project aims at is making that direction a
+one-click, scriptable tool: direct package-to-package conversion, four entry points, batch and
+recursive conversion of a whole library, with the audio-sync math calibrated against real charts.
+See "Known differences from the reference implementation" in [CREDITS.md](CREDITS.md).
 
-## 该用哪个入口
+## Which entry point to use
 
-| 你的情况 | 用这个 | 为什么 |
+| Your situation | Use | Why |
 | --- | --- | --- |
-| 日常转谱、想在窗口里挑选文件和文件夹 | `GUI.bat` | 有界面，能调所有选项，能看日志 |
-| 懒得开界面，直接把东西拖过去 | `转换.bat` | 步骤最少，拖上去就完事 |
-| 想拷到别的电脑／U 盘用，或不想装任何东西 | `Malody2osu.html` | 单个 HTML，浏览器打开即可，**不需要 Node.js** |
-| 一次转几十首／整个曲库／写脚本 | `命令行.bat` | 支持递归、批量，产物集中管理 |
+| Everyday conversion, want to pick files/folders in a window | `GUI.bat` | Has a UI, all options exposed, shows a log |
+| Can't be bothered with a UI, just want to drop files | `转换.bat` | Fewest steps — drop and you're done |
+| Want to carry it on a USB stick, or install nothing | `Malody2osu.html` | A single HTML file, opens in a browser, **no Node.js needed** |
+| Converting dozens of songs / a whole library / scripting | `命令行.bat` | Supports recursion and batch, keeps output organized |
 
-## 共同前提：Node.js
+> The `.bat` launchers are Windows-only. `Malody2osu.html` works on any OS with a browser, and
+> `cli.mjs` (with Node.js) works cross-platform.
 
-`GUI.bat` / `转换.bat` / `命令行.bat` 这三个入口都是外壳，真正的转换由 `cli.mjs` + `core.mjs` 完成，
-所以**它们需要 Node.js**。而 **`Malody2osu.html` 不需要**——转换逻辑整个内联在网页里。
+## Prerequisite: Node.js
 
-**不用手动配置**：`gui.ps1` 和 `convert.ps1` 会自动依次找 node：
+The `GUI.bat` / `转换.bat` / `命令行.bat` entry points are just shells — the actual conversion is
+done by `cli.mjs` + `core.mjs`, so **they need Node.js**. **`Malody2osu.html` does not** — the whole
+conversion core is inlined into the page.
 
-1. 系统 PATH 里的 `node.exe`
+**No manual configuration needed**: `gui.ps1` and `convert.ps1` look for node automatically, in order:
+
+1. `node.exe` on the system `PATH`
 2. `C:\Program Files\nodejs\node.exe`
 3. `C:\Program Files (x86)\nodejs\node.exe`
 4. `%LOCALAPPDATA%\Programs\nodejs\node.exe`
-5. 都找不到 → 弹窗提示你去 <https://nodejs.org> 装 LTS 版
+5. If none are found → a dialog points you to <https://nodejs.org> for the LTS build
 
-想自己确认有没有装：开个终端敲 `node -v`，有版本号就行。
+To check yourself, open a terminal and run `node -v` — any version number is fine.
 
 ---
 
-## 方式一：图形界面 —— `GUI.bat`（推荐）
+## Option 1: GUI — `GUI.bat` (recommended)
 
-### 启动
+### Starting it
 
-**逐步：**
+1. Open the folder containing this tool
+2. **Double-click `GUI.bat`**
+3. A black window **flashes briefly** (that's the launcher), then the app window opens
 
-1. 打开本工具所在文件夹
-2. **双击 `GUI.bat`**
-3. 会**极快地闪一下黑色窗口**（那是启动器），随即弹出应用窗口，标题为 `Malody  <->  osu!mania  转换器`
+> That black window is `GUI.bat` itself. It does one thing: launch `gui.ps1` hidden, so no leftover
+> console window stays around.
 
-> 那个黑窗是 `GUI.bat` 自己，它只做一件事：用隐藏方式启动 `gui.ps1`，所以不会留下残留的命令行窗口。
+**Alternative**: **drag files or folders onto the `GUI.bat` icon** and release — when the window
+opens, those items are already in the list.
 
-**另一种启动方式**：把文件或文件夹**直接拖到 `GUI.bat` 图标上**再松手 —— 窗口打开时，
-这些项目已经预先加进列表里了。
-
-### 界面说明
+### The interface
 
 ```
-┌─ Malody  <->  osu!mania  转换器 ─────────────────────────┐
+┌─ Malody  <->  osu!mania  Converter ──────────────────────┐
 │  Malody  <->  osu!mania                                  │
-│  .mcz → .osz（拿去 osu! 玩）  .osz/文件夹 → .mcz（拿去编辑）│
+│  .mcz → .osz (play in osu!)   .osz/folder → .mcz (edit)  │
 │                                                          │
-│  待转换的项目（也可把文件/文件夹拖进列表）：               │
+│  Items to convert (you can also drag files in):          │
 │  ┌────────────────────────────────────────────────────┐ │
 │  │ D:\OSU!\Songs\226766 Sound Piercer ESPITZ...       │ │
 │  └────────────────────────────────────────────────────┘ │
-│  [添加文件…] [添加文件夹…] [移除选中] [清空]              │
+│  [Add files…] [Add folder…] [Remove selected] [Clear]    │
 │                                                          │
-│  ┌ 选项 ────────────────────────────────────────────┐   │
-│  │ 键数 [自动▾]  时间微调(ms) [0]  ☑压缩输出         │   │
-│  │ ☑ 按 Malody offset 换算音画同步                   │   │
-│  │ 输出目录 [C:\Users\...\Desktop      ] [浏览…]     │   │
-│  │              输出格式 [完整▾]                     │   │
+│  ┌ Options ─────────────────────────────────────────┐   │
+│  │ Keys [Auto▾]  Time shift (ms) [0]  ☑Compress     │   │
+│  │ ☑ Audio sync via Malody offset                   │   │
+│  │ Output dir [C:\Users\...\Desktop    ] [Browse…]  │   │
+│  │              Output style [Full▾]                │   │
 │  └──────────────────────────────────────────────────┘   │
 │                                                          │
-│  [ 开始转换 ]  [打开输出目录]   就绪                      │
-│  日志：                                                   │
+│  [ Start ]  [Open output folder]        Ready            │
+│  Log:                                                    │
 │  ┌────────────────────────────────────────────────────┐ │
 │  │ [1/2] D:\OSU!\Songs\...                            │ │
-│  │     √ 已生成 xxx.mcz  (1.85 MB)                    │ │
+│  │     √ generated xxx.mcz  (1.85 MB)                 │ │
 │  └────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### 操作步骤
+### Steps
 
-1. **加入要转的东西**（任选一种）
-   - 点「**添加文件…**」→ 系统文件选择框，可多选，筛选 `.mcz / .osz / .zip / .osu`
-   - 点「**添加文件夹…**」→ 系统文件夹选择框
-   - 或者直接把文件/文件夹**拖进列表**（支持一次拖多个）
-2. **确认输出目录**（默认是桌面）。想改就点「浏览…」
-3. **按需改选项**（不改就是默认值，见下表）
-4. 点「**开始转换**」
-5. 看下方**日志**：每个产物一行 `√ 已生成 xxx.mcz (1.85 MB)`
-6. 转完点「**打开输出目录**」直接跳到结果所在位置
+1. **Add what you want to convert** (any of these)
+   - Click **Add files…** → native file dialog, multi-select, filters `.mcz / .osz / .zip / .osu`
+   - Click **Add folder…** → native folder dialog
+   - Or **drag files/folders into the list** (multiple at once is fine)
+2. **Confirm the output folder** (desktop by default). Click "Browse…" to change it
+3. **Adjust options if needed** (defaults are fine — see the table below)
+4. Click **Start**
+5. Watch the **log**: one line per output, `√ generated xxx.mcz (1.85 MB)`
+6. When done, click **Open output folder**
 
-### 选项含义
+### Options
 
-| 选项 | 默认 | 说明 |
+| Option | Default | Notes |
 | --- | --- | --- |
-| 键数 | 自动 | 一般不用改；只有谱面键数信息异常时才手动指定（4K～10K） |
-| 时间微调 (ms) | 0 | 成品整体偏早/偏晚时用，正数=整体延后 |
-| 压缩输出 | 开 | 关掉兼容性最好但体积更大 |
-| 按 Malody offset 换算音画同步 | 开 | 音画对齐的关键开关（见下文「音画同步」）。若成品整体偏移就取消勾选 |
-| 输出目录 | 桌面 | 产物放哪 |
-| 输出格式 | 完整 | 「精简」是备用形态，两个 Malody 版本实测都用「完整」 |
+| Keys | Auto | Rarely needed; only set manually if the chart's key count is wrong (4K–10K) |
+| Time shift (ms) | 0 | Use when the result is uniformly early/late; positive = later |
+| Compress output | On | Turning it off maximizes compatibility but increases size |
+| Audio sync via Malody offset | On | The key switch for audio alignment (see "Audio sync" below). Uncheck if the result is uniformly offset |
 
-### 关于输出位置
+### About output location
 
-- 单个谱面集（一个 osu 歌曲文件夹）→ 直接输出到桌面，如 `某曲名.mcz`
-- 含多个包的文件夹 → 会在输出目录下**建一个同名子文件夹**，产物集中放进去
-- 日志里会列全路径
+- A single chart set (one osu! song folder) → written straight to the desktop, e.g. `SomeTitle.mcz`
+- A folder containing multiple packages → a **subfolder with the same name** is created inside the
+  output directory and everything goes there
+- The log prints full paths
 
-### 如果窗口没出现
+### If the window doesn't appear
 
-- 先等 1～2 秒（PowerShell 启动 + WinForms 初始化需要一点时间）
-- 若始终没有：多半是**杀毒软件拦了 PowerShell 脚本**，把本文件夹加白名单，或改用 `Malody2osu.html`
+- Wait 1–2 seconds (PowerShell startup + WinForms init takes a moment)
+- If it never appears: most likely **antivirus blocking the PowerShell script**. Whitelist this
+  folder, or use `Malody2osu.html` instead
 
 ---
 
-## 方式二：拖放 —— `转换.bat`（步骤最少）
+## Option 2: Drag & drop — `转换.bat` (fewest steps)
 
-### 启动
+### Starting it
 
-**方式 A（拖放，推荐）**
+**Way A (drag & drop, recommended)**
 
-1. 选中一个或多个文件/文件夹
-2. 拖到 `转换.bat` 的图标上，松手
-3. 会弹出一个**黑色命令行窗口**，显示转换进度
+1. Select one or more files/folders
+2. Drag them onto the `转换.bat` icon and release
+3. A **console window** opens showing progress
 
-**方式 B（双击）**
+**Way B (double-click)**
 
-1. **双击 `转换.bat`**（不带任何东西）
-2. 弹出**文件夹选择框** → 选一个目录
-3. 转换开始
+1. **Double-click `转换.bat`** (with nothing attached)
+2. A **folder picker** appears → choose a directory
+3. Conversion starts
 
-### 运行过程与结束
+### During and after
 
-窗口里会依次显示：找到的 Node 运行时、输出目录、每个文件的转换详情、最后是结果汇总：
+The window shows, in order: the Node runtime it found, the output directory, per-file details, and
+finally a summary:
 
 ```
-  已生成  xxx.mcz   (1.85 MB)
-完成：共生成 1 个文件。
-  .mcz 拖进 Malody 即可导入编辑；.osz 拖进 osu! 窗口即可导入。
+  generated  xxx.mcz   (1.85 MB)
+Done: 1 file generated.
+  Drag .mcz into Malody to import and edit; drag .osz into the osu! window to import.
 
-按回车打开输出目录（输入 n 直接退出）
+Press Enter to open the output folder (type n to quit)
 ```
 
-按**回车** → 资源管理器自动打开并选中产物；输入 `n` → 直接退出。
+Press **Enter** → Explorer opens with the output selected. Type `n` → quit.
 
-### 支持的输入（可一次拖多个）
+### Supported inputs (multiple at once is fine)
 
-| 拖进去 | 得到 |
+| Drop in | You get |
 | --- | --- |
-| `.mcz`（Malody 谱面包） | `.osz` |
-| `.osz` / `.zip`（osu! 谱面包） | `.mcz`（混键数会拆成 `_4K.mcz` / `_7K.mcz`） |
-| `.osu`（单个谱面） | `.mc`（注意：不含音频/背景） |
-| **含 `.osu` 的文件夹**（osu! 歌曲文件夹） | `.mcz` |
-| **含 `.mcz` 的文件夹** | 每个转成 `.osz`，集中放进一个子文件夹 |
+| `.mcz` (Malody chart package) | `.osz` |
+| `.osz` / `.zip` (osu! beatmap package) | `.mcz` (mixed key counts split into `_4K.mcz` / `_7K.mcz`) |
+| `.osu` (single chart) | `.mc` (note: no audio/background included) |
+| **A folder containing `.osu`** (osu! song folder) | `.mcz` |
+| **A folder containing `.mcz`** | Each becomes `.osz`, collected into one subfolder |
 
-### 输出位置
+### Output location
 
-默认**桌面**。想换：先设环境变量 `MALODY2OSU_OUT` 再运行，例如在终端里：
+Desktop by default. To change it, set the environment variable `MALODY2OSU_OUT` before running:
 
 ```cmd
-set MALODY2OSU_OUT=D:\转换输出
+set MALODY2OSU_OUT=D:\converted
 ```
 
-### 和 GUI 的区别
+### Difference from the GUI
 
-拖放**不问任何选项**，全部用默认值。要调选项就用 `GUI.bat` 或命令行。
+Drag & drop **asks no questions** — everything uses default options. To change options, use `GUI.bat`
+or the command line.
 
 ---
 
-## 方式三：网页应用 —— `Malody2osu.html`
+## Option 3: Web app — `Malody2osu.html`
 
-### 启动
+### Starting it
 
-**双击 `Malody2osu.html`** → 用系统默认浏览器打开。
+**Double-click `Malody2osu.html`** → opens in your default browser.
 
-**这个入口不需要 Node.js，也不依赖同目录的其它任何文件**——它把整个转换核心内联进了 HTML，
-可以单独拷到 U 盘、别的电脑、发给别人用。完全离线，不上传任何文件。
+**This entry point needs no Node.js and does not depend on any other file in the folder** — the
+entire conversion core is inlined into the HTML. You can copy it to a USB stick, another computer,
+or send it to someone. Fully offline; nothing is uploaded.
 
-### 操作步骤
+### Steps
 
-1. 把 `.mcz` / `.osz` / `.zip` **拖进虚线框**，或点「选择文件」（支持多选）
-2. 或者点「**📁 选择文件夹**」，选一个 osu! 歌曲目录（如 `D:\OSU!\Songs\某曲目`）
-3. 在页面上按需改选项（键数／时间微调／压缩／同步换算）
-4. 处理完**自动下载**，页面下方会列出每个结果的详情和下载按钮
+1. **Drag `.mcz` / `.osz` / `.zip` into the dashed area**, or click "Choose files" (multi-select)
+2. Or click **Choose folder** and pick an osu! song directory (e.g. `D:\OSU!\Songs\SomeSong`)
+3. Adjust options on the page as needed (keys / time shift / compression / sync)
+4. Results **download automatically**; details and download buttons are listed below
 
-### 和桌面版的区别
+### Difference from the desktop version
 
-| | 桌面版（GUI.bat） | 网页版 |
+| | Desktop (`GUI.bat`) | Web app |
 | --- | --- | --- |
-| 需要 Node.js | 需要 | **不需要** |
-| 输出位置 | 桌面（可选） | **浏览器的下载目录**（由浏览器设置决定） |
-| 文件夹选择 | 原生文件夹框 | 浏览器文件夹选择器 |
+| Needs Node.js | Yes | **No** |
+| Output location | Desktop (configurable) | **Browser download folder** (per browser settings) |
+| Folder selection | Native folder dialog | Browser folder picker |
 
 ---
 
-## 方式四：命令行 —— `命令行.bat`
+## Option 4: Command line — `命令行.bat`
 
-### 启动
+### Starting it
 
-**双击 `命令行.bat`** → 打开一个终端窗口，**工作目录已经自动切到本工具文件夹**，并打印用法说明。
+**Double-click `命令行.bat`** → opens a terminal window with the **working directory already set to
+this tool's folder** and the usage text printed.
 
-也可以自己开终端 `cd` 过来。
+You can also open a terminal yourself and `cd` here.
 
-### 用法
+### Usage
 
 ```bash
-node cli.mjs <输入> [-o 输出] [选项]
+node cli.mjs <input> [-o output] [options]
 ```
 
-> ⚠️ **路径务必用双引号包起来。** 本工具的文件夹名里含 `&`，在 cmd 里 `&` 是命令分隔符，
-> 不加引号会被截断；路径含空格时同理。
+> ⚠️ **Always quote paths.** If a path contains spaces or characters that are special to cmd (like
+> `&`), it will be truncated without quotes.
 
-### 输入可以是
+### Inputs
 
-| 输入 | 输出 |
+| Input | Output |
 | --- | --- |
 | `.mcz` | `.osz` |
 | `.osz` / `.zip` | `.mcz` |
 | `.osu` | `.mc` |
-| 含 `.osu` 的目录 | `.mcz`（混键数自动拆包） |
-| 其它目录 | 目录里的每个 `.mcz` / `.osz` / `.zip` / `.osu` 逐个转换，**两个方向都支持** |
+| A directory containing `.osu` | `.mcz` (mixed key counts are split automatically) |
+| Any other directory | Every `.mcz` / `.osz` / `.zip` / `.osu` inside, converted individually — **both directions supported** |
 
-### 选项
+### Options
 
-| 选项 | 说明 |
+| Option | Notes |
 | --- | --- |
-| `-o, --output` | 输出路径（目录输入时作为输出目录） |
-| `--key N` | 强制键数（默认读取谱面） |
-| `--shift MS` | 整体时间微调，正数=延后 |
-| `--denom N` | Malody 拍分母（默认 288） |
-| `--no-sync` | 不做同步换算（成品整体偏移时用） |
-| `--mc-style full\|minimal` | 输出格式风格，默认 `full`（见「版本兼容」） |
-| `--no-compress` | 关闭压缩 |
-| `-r, --recursive` | 递归子目录，可一次转完整个 `D:\OSU!\Songs` |
+| `-o, --output` | Output path (used as the output directory for directory input) |
+| `--key N` | Force key count (default: read from the chart) |
+| `--shift MS` | Global time shift; positive = later |
+| `--denom N` | Malody beat denominator (default 288) |
+| `--no-sync` | Skip sync conversion (use when the result is uniformly offset) |
+| `--mc-style full\|minimal` | Output style, default `full` (see "Version compatibility") |
+| `--no-compress` | Disable compression |
+| `-r, --recursive` | Recurse into subdirectories — convert a whole `D:\OSU!\Songs` in one go |
 
-### 例子
+### Examples
 
 ```bash
-:: 单个 osu! 歌曲文件夹 → .mcz
-node cli.mjs "D:\osu!\Songs\某曲目" -o "输出.mcz"
+:: One osu! song folder → .mcz
+node cli.mjs "D:\osu!\Songs\SomeSong" -o "out.mcz"
 
-:: Malody 谱面包 → .osz
-node cli.mjs "某谱面包.mcz" -o "输出.osz"
+:: A Malody chart package → .osz
+node cli.mjs "some-pack.mcz" -o "out.osz"
 
-:: 批量：整个 osu! 曲库 → 全部转成 .mcz，产物集中到 D:\转换输出
-node cli.mjs "D:\osu!\Songs" -r -o "D:\转换输出"
+:: Batch: an entire osu! library → .mcz, collected into D:\converted
+node cli.mjs "D:\osu!\Songs" -r -o "D:\converted"
 
-:: 一个装满 .mcz 的文件夹 → 每个都转成 .osz
-node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
+:: A folder full of .mcz → each becomes .osz
+node cli.mjs "D:\malody-packs" -o "D:\osz-out"
 ```
 
 ---
 
-## 四个入口对比
+## Comparing the four entry points
 
-|  | 需要 Node.js | 需要同目录文件 | 界面内选择 | 输出位置 | 最擅长 |
+|  | Needs Node.js | Needs sibling files | In-UI selection | Output location | Best at |
 | --- | --- | --- | --- | --- | --- |
-| `GUI.bat` | 是 | `gui.ps1` `cli.mjs` `core.mjs` | ✅ 原生对话框 | 可选（默认桌面） | 日常使用 |
-| `转换.bat` | 是 | `convert.ps1` `cli.mjs` `core.mjs` | 仅文件夹框 | 桌面 / 环境变量 | 图省事 |
-| `Malody2osu.html` | **否** | **无** | 浏览器内 | 浏览器下载目录 | 便携／免安装 |
-| `命令行.bat` | 是 | `cli.mjs` `core.mjs` | ✗ | `-o` 指定 | 批量／脚本 |
+| `GUI.bat` | Yes | `gui.ps1` `cli.mjs` `core.mjs` | ✅ native dialogs | Configurable (desktop default) | Everyday use |
+| `转换.bat` | Yes | `convert.ps1` `cli.mjs` `core.mjs` | Folder picker only | Desktop / env var | Least effort |
+| `Malody2osu.html` | **No** | **None** | In-browser | Browser download folder | Portable / install-free |
+| `命令行.bat` | Yes | `cli.mjs` `core.mjs` | ✗ | Via `-o` | Batch / scripting |
 
-## 常见问题
+## FAQ
 
-| 现象 | 原因与解决 |
+| Symptom | Cause and fix |
 | --- | --- |
-| 双击 `.bat` 后黑窗一闪就没了 | 通常是没装 Node.js，或 `cli.mjs` 不在同一目录。脚本本身会弹提示；也可以双击 `命令行.bat` 手动跑一次看具体报错 |
-| `GUI.bat` 双击没反应 | 等 1～2 秒；仍无则多半被杀毒软件拦了 PowerShell 脚本，把文件夹加白名单，或改用 `Malody2osu.html` |
-| 杀软报毒／拦截 | `.bat` + `.ps1` + PowerShell 是常见误报模式。可只保留 `Malody2osu.html` 使用，它不碰 PowerShell |
-| 找不到输出文件 | GUI／拖放默认放**桌面**；网页版在**浏览器下载目录**。GUI 里可点「打开输出目录」 |
-| 导入 Malody 后源文件消失了 | Malody 的正常行为（导入即删除）。需要时用同样步骤重新生成 |
-| 导入后看不到 7K 难度 | Malody 4.x **按键数分页显示**，切到 7K 分页即可，不是导入失败 |
-| 成品进游戏整体偏早/偏晚 | 切换「按 Malody offset 换算音画同步」（命令行 `--no-sync`） |
-| 某个 Malody 版本读不了 | 把「输出格式」改成「精简」（命令行 `--mc-style minimal`）再试 |
+| Double-clicking a `.bat` flashes a black window and nothing happens | Usually Node.js isn't installed, or `cli.mjs` isn't in the same folder. The script shows a dialog; you can also run `命令行.bat` to see the actual error |
+| `GUI.bat` doesn't respond | Wait 1–2 seconds; if it still doesn't, antivirus is probably blocking the PowerShell script — whitelist the folder, or use `Malody2osu.html` |
+| Antivirus flags it | `.bat` + `.ps1` + PowerShell is a common false-positive pattern. You can use only `Malody2osu.html`, which never touches PowerShell |
+| Can't find the output | GUI / drag-drop default to the **desktop**; the web app uses the **browser download folder**. In the GUI you can click "Open output folder" |
+| The source file disappeared after importing into Malody | Normal Malody behaviour (import deletes the source). Regenerate with the same steps if needed |
+| The 7K difficulty isn't visible after import | Malody 4.x **pages the song list by key count**; switch to the 7K page. It's not a failed import |
+| The result plays uniformly early/late | Toggle "Audio sync via Malody offset" (CLI: `--no-sync`) |
+| A particular Malody version can't read the output | Switch "Output style" to "Minimal" (CLI: `--mc-style minimal`) and retry |
 
+## Files
 
-## 文件说明
-
-| 文件 | 作用 |
+| File | Purpose |
 | --- | --- |
-| `GUI.bat` | **图形界面入口**：双击打开窗口，在界面里选择文件和文件夹 |
-| `gui.ps1` | 图形界面逻辑（WinForms 窗口、选择框、日志、调用核心） |
-| `转换.bat` | 拖放程序入口：把文件/文件夹拖到它上面即可转换 |
-| `命令行.bat` | 打开已设好工作目录的终端（命令行方式的入口） |
-| `convert.ps1` | 拖放程序的逻辑（解析参数、找 Node、汇总结果、打开输出目录） |
-| `Malody2osu.html` | 单文件应用（构建产物，可直接分发） |
-| `core.mjs` | 转换核心：ZIP 读写 + 时间轴 + 双向转换。**唯一事实来源** |
-| `cli.mjs` | 命令行入口（含目录输入） |
-| `app.template.html` | 界面模板（含 `/*__CORE__*/` 占位符） |
-| `build.mjs` | 把 `core.mjs` 内联进模板 → `Malody2osu.html` |
-| `verify.py` | 校验 `.osz`：ZIP 完整性、音符数、列映射、时间轴、音画余量 |
-| `compare_roundtrip.py` | 对比两个 `.mc` / `.mcz`（原始 vs 往返），输出逐音符偏差 |
-| `batch_test.mjs` | 在 osu! 曲库上批量做 osu→mc→osu 保真度测试 |
-| `tools/gh-slug.mjs` | 按 GitHub 官方规则算出标题锚点 |
-| `tools/check-toc.mjs` | 校验目录锚点是否都能命中真实标题 |
+| `GUI.bat` | **GUI entry point**: double-click to open the window and pick files/folders |
+| `gui.ps1` | GUI logic (WinForms window, pickers, log, calls the core) |
+| `转换.bat` | Drag & drop entry point |
+| `命令行.bat` | Opens a terminal with the working directory already set |
+| `convert.ps1` | Drag & drop logic (parse args, locate Node, summarize, open output folder) |
+| `Malody2osu.html` | Single-file app (build artifact, safe to redistribute) |
+| `core.mjs` | Conversion core: ZIP read/write + timeline + both directions. **Single source of truth** |
+| `cli.mjs` | Command-line entry point (including directory input) |
+| `app.template.html` | UI template (contains the `/*__CORE__*/` placeholder) |
+| `build.mjs` | Inlines `core.mjs` into the template → `Malody2osu.html` |
+| `verify.py` | Validates an `.osz`: ZIP integrity, note count, column mapping, timeline, audio headroom |
+| `compare_roundtrip.py` | Compares two `.mc` / `.mcz` (original vs round-tripped), prints per-note deviation |
+| `batch_test.mjs` | Batch osu→mc→osu fidelity test over an osu! library |
+| `tools/gh-slug.mjs` | Computes heading anchors using GitHub's own rules |
+| `tools/check-toc.mjs` | Checks that every TOC anchor resolves to a real heading |
 
-改完 `core.mjs` 后重新构建：`node build.mjs`
+After editing `core.mjs`, rebuild with: `node build.mjs`
 
-## 格式依据
+## Format notes
 
-对 4 个真实 `.mcz` 逆向，并与 rmstZ 参考实现、rconv 的 Malody 类型定义交叉验证：
+Reverse-engineered from 4 real `.mcz` files and cross-checked against the rmstZ reference
+implementation and rconv's Malody type definitions:
 
-| 项目 | 规则 |
+| Item | Rule |
 | --- | --- |
-| 拍位置 | `Beat[3] = [小节, snap索引, snap大小]`，即 `a + b/c` |
-| 谱面键数 | `meta.mode_ext.column` |
-| BPM 变速 | `time[].bpm` 逐段积分成毫秒；非正 BPM 视为变速(SV) |
-| 长按 | `endbeat` ⇄ osu mania `type 128` + `endTime` |
-| 列坐标 | `x = round((column*2+1)/(key*2) * 512)`；反解 `column = floor(x*key/512)` |
-| BGM 事件 | `note[]` 中 `type==1` 且无 `column` 的条目（`SoundCueType.Song`） |
-| 滚动速度 | osu 绿线（继承点）`scroll = -100 / beatLength` ⇄ Malody `effect[].scroll` |
-| 自定义音效 | osu HitObject 的 `hitSample` 文件名 ⇄ Malody `note.sound` |
-| 拍分母 | 288（真实谱面出现频率最高），再按 2、3 约分 |
-| 包结构 | `.mcz` = zip：若干 `<时间戳>.mc` + 音频 + 背景图 |
+| Beat position | `Beat[3] = [measure, snap index, snap size]`, i.e. `a + b/c` |
+| Key count | `meta.mode_ext.column` |
+| BPM changes | Integrate `time[].bpm` segment by segment into milliseconds; non-positive BPM is treated as a scroll (SV) change |
+| Long notes | `endbeat` ⇄ osu!mania `type 128` + `endTime` |
+| Column position | `x = round((column*2+1)/(key*2) * 512)`; inverse `column = floor(x*key/512)` |
+| BGM event | The entry in `note[]` with `type==1` and no `column` (`SoundCueType.Song`) |
+| Scroll speed | osu! green line (inherited point) `scroll = -100 / beatLength` ⇄ Malody `effect[].scroll` |
+| Custom hitsounds | osu! HitObject `hitSample` filename ⇄ Malody `note.sound` |
+| Beat denominator | 288 (most common in real charts), then reduced by 2 and 3 |
+| Package layout | `.mcz` = zip: several `<timestamp>.mc` + audio + background image |
 
-### 音画同步（重要）
+### Audio sync (important)
 
-Malody 的 BGM `offset` 语义是「延迟多久开始播放音频」，即 **音频位置 = 谱面时间 − offset**
-（rconv：`cueOffset` = "How much offset in ms it should wait before playing it"）。
+Malody's BGM `offset` means "how long to wait before playing the audio", i.e.
+**audio position = chart time − offset** (rconv: `cueOffset` = "How much offset in ms it should wait
+before playing it").
 
-- **Malody → osu**：`osu时间 = 谱面时间 − offset`，同时把 `offset` 写进 `AudioLeadIn` 以保证往返可还原
-- **osu → Malody**：`offset = 平移量 − T0`（T0 = 首个红线的 osu 时间）
+- **Malody → osu**: `osu time = chart time − offset`, and `offset` is also written into `AudioLeadIn`
+  so the round trip can be restored exactly
+- **osu → Malody**: `offset = shift amount − T0` (T0 = osu time of the first red line)
 
-依据：Malody 导出的 osu 文件一律是 `AudioLeadIn: 0` + 负的 T0，且首个音符精确落在整数拍
-（实测 24.000 / 65.001 拍）。若成品进游戏后整体偏移，用 `--no-sync` 或界面上的「不平移」选项切换。
+Evidence: osu! files exported by Malody are consistently `AudioLeadIn: 0` with a negative T0, and the
+first note lands exactly on an integer beat (24.000 / 65.001 observed). If the result is uniformly
+offset in-game, switch with `--no-sync` or the "no shift" option in the UI.
 
-### 负小节处理
+### Negative measures
 
-osu! 允许音符早于首个 BPM 点（全局 1539 个 mania 谱面里 14.9% 如此），
-而 Malody 的 `[-1,0,0]` 是 `EmptyBeat` 哨兵，负小节有风险。
-处理方式：**整小节平移**（保证小节线对齐）+ 在 beat 0 补一个同 BPM 的 `time` 点。
-微小负拍（量化后落到第 0 拍）不会触发平移。
+osu! allows notes before the first BPM point (14.9% of the 1539 mania charts scanned), while Malody's
+`[-1,0,0]` is the `EmptyBeat` sentinel, so negative measures are risky.
+Handling: **shift by whole measures** (keeping measure lines aligned) + add a `time` point with the
+same BPM at beat 0. Tiny negative beats (which quantize to beat 0) do not trigger the shift.
 
-### 滚动速度（SV / 绿线）
+### Scroll speed (SV / green lines)
 
-osu!mania 用**继承型 timing point**（`uninherited = 0`，`beatLength` 为负）控制卷速：
+osu!mania controls scroll speed with **inherited timing points** (`uninherited = 0`, negative
+`beatLength`):
 
 ```
-卷速倍率 = -100 / beatLength        beatLength = -100 → 1.0 倍（正常）
-                                    beatLength = -400 → 0.25 倍
+scroll multiplier = -100 / beatLength      beatLength = -100 → 1.0x (normal)
+                                           beatLength = -400 → 0.25x
 ```
 
-这与 Malody 的 `effect[].scroll` 语义一致（`1.0` 为正常速度），因此直接对应：
+This matches the semantics of Malody's `effect[].scroll` (`1.0` = normal), so they map directly:
 
-| 方向 | 换算 |
+| Direction | Conversion |
 | --- | --- |
 | osu → Malody | `effect.push({ beat, scroll: -100 / beatLength })` |
-| Malody → osu | 写一条 `uninherited=0` 的 timing point，`beatLength = -100 / scroll` |
+| Malody → osu | Write an `uninherited=0` timing point with `beatLength = -100 / scroll` |
 
-只用正 `scroll` 值；MalodyV 里少量**负 scroll** 属非标准效果，不转换成绿线。
-实测 1601 张 mania 谱面中 **840 张（52.5%）含绿线**，方向覆盖是必要的。
+Only positive `scroll` values are used; the few **negative scroll** values in MalodyV are
+non-standard effects and are not converted to green lines.
+Of 1601 mania charts scanned, **840 (52.5%) contain green lines**, so covering this matters.
 
-### 自定义音效（hitSample ⇄ note.sound）
+### Custom hitsounds (hitSample ⇄ note.sound)
 
-osu! HitObject 第 6 段的 `hitSample` 格式为 `normalSet:additionSet:index:volume:filename`：
+The `hitSample` field (6th field of an osu! HitObject) has the form
+`normalSet:additionSet:index:volume:filename`:
 
 ```
-单点：  448,192,867,1,0,0:0:0:70:kick.wav
-长按：  192,192,1557,128,0,1611:0:0:0:70:snare.wav
+tap:  448,192,867,1,0,0:0:0:70:kick.wav
+hold: 192,192,1557,128,0,1611:0:0:0:70:snare.wav
 ```
 
-文件名（最后一段）⇄ Malody 的 `note.sound`。无自定义音效时输出保持 `0:0:0:0:`，与传统格式一致。
-注意 **`hitSound` 位掩码（Whistle/Clap/Finish）不在此列**——它没有文件名可对应，见「已知限制」。
+The filename (last segment) ⇄ Malody's `note.sound`. When there is no custom hitsound the output
+stays `0:0:0:0:`, matching the traditional format.
+Note that the **`hitSound` bitmask (Whistle/Clap/Finish) is not covered** — it has no filename to map
+to; see "Known limitations".
 
-## 版本兼容（Malody V / 4.x）
+## Version compatibility (Malody V / 4.x)
 
-**结论：MalodyV 与 Malody 4.3.7 都已在真机上实测导入成功**（详见下文「现状」）。
+**Conclusion: both MalodyV and Malody 4.3.7 have been verified by importing on a real machine** (see
+"Current status" below).
 
-对 4 个真实 `.mcz`（9 个 `.mc`，时间跨度 2025-11 ~ 2026-09）做字段对比后发现，
-它们**不是同一种格式方言**，很可能对应不同 Malody 版本/分支：
+Comparing fields across 4 real `.mcz` files (9 `.mc`, spanning 2025-11 to 2026-09) shows they are
+**not a single format dialect** — they likely correspond to different Malody versions/branches:
 
-| 层 | 方言 A（7 个文件） | 方言 B（愛属性，2 个文件） |
+| Layer | Dialect A (7 files) | Dialect B (愛属性, 2 files) |
 | --- | --- | --- |
-| 顶层键 | `meta, time, effect, note, extra` | `meta, time, note`（**无 effect / extra**） |
-| meta | `$ver, creator, background, version, [preview], id, mode, time, song, mode_ext` | **无 `$ver` / `time`**，多 `aimode:""` |
-| song | `title, artist, id, [titleorg, artistorg]` | 多 `file`（音频名）、`bpm` |
-| mode_ext | `{column, bar_begin}` | 多 `speed: 0` |
-| time[] | `{beat, bpm}` | 多 `delay: 0` |
-| BGM | `{beat, sound, vol, offset, type}` | **无 `vol`** |
+| Top-level keys | `meta, time, effect, note, extra` | `meta, time, note` (**no effect / extra**) |
+| meta | `$ver, creator, background, version, [preview], id, mode, time, song, mode_ext` | **no `$ver` / `time`**, plus `aimode:""` |
+| song | `title, artist, id, [titleorg, artistorg]` | plus `file` (audio name), `bpm` |
+| mode_ext | `{column, bar_begin}` | plus `speed: 0` |
+| time[] | `{beat, bpm}` | plus `delay: 0` |
+| BGM | `{beat, sound, vol, offset, type}` | **no `vol`** |
 
-### 本工具的处理
+### How this tool handles it
 
-- **读取端两种方言都能吃**：已用 4 个真实 `.mcz` 全部实测通过（含方言 B 的 `愛属性.mcz`）。
-- **写出端默认 `full`（方言 A 形态）**，且只写方言 A 的字段。
-  这是**两个版本都实测兼容**的形态：4.3.7 的曲库里方言 B 出现 0 次，而 MalodyV 也接受了本工具的方言 A 产物。
-- **方言 B 专用的 `aimode` / `song.file` / `song.bpm` 默认不写**（这两个版本自己的文件里都没有）。
-- **若将来遇到读不了的版本**，可切到 `minimal`：它逐层覆盖方言 B 所需的全部字段（已逐层对比验证，零缺失）。
-  界面：GUI 里「输出格式」改成「精简」；命令行：`--mc-style minimal`。
+- **The reader accepts both dialects**: verified against all 4 real `.mcz` files (including the
+  dialect B `愛属性.mcz`).
+- **The writer defaults to `full`** (dialect A shape) and only writes dialect A fields. This shape is
+  **verified compatible with both versions**: dialect B appears 0 times in the 4.3.7 library, and
+  MalodyV also accepts this tool's dialect A output.
+- **Dialect B-only fields** (`aimode` / `song.file` / `song.bpm`) **are not written by default**
+  (neither version's own files contain them).
+- **If you hit a version that can't read the output**, switch to `minimal`: it covers every field
+  dialect B needs, layer by layer (verified field-by-field, zero missing).
+  In the GUI, set "Output style" to "Minimal"; on the CLI, `--mc-style minimal`.
 
-### 现状（两个版本均已实机验证通过）
+### Current status (both versions verified on a real machine)
 
-**MalodyV：实机导入已验证 ✓**
-曲库 `<MalodyV>\chart\` 里有本工具产物的落盘文件
-`1956659_4K\1791022683.mc`（文件名即本工具生成的时间戳），归一化时间戳后与原始产物**逐字段完全一致**
-（MalodyV 原样接收、未改写），音符数 1267 与源谱面一致。
+**MalodyV: import verified ✓**
+The library folder `<MalodyV>\chart\` contains this tool's output `1956659_4K\1791022683.mc` (the
+filename is the timestamp this tool generated). After normalizing timestamps it is **field-for-field
+identical** to the original output (MalodyV accepted it as-is and did not rewrite it), and the note
+count 1267 matches the source chart.
 
-**Malody 4.3.7：实机导入已验证 ✓**
-曲库 `<4.3.7>\beatmap\` 下已出现本工具导入的两个包：
+**Malody 4.3.7: import verified ✓**
+Two packages imported by this tool are present under `<4.3.7>\beatmap\`:
 
-| 目录 | 内容 |
+| Directory | Contents |
 | --- | --- |
-| `beatmap\1956659_4K\` | 5 个 `.mc` + `audio.ogg` + `Nya Background.jpeg` |
-| `beatmap\1956659_7K\` | 6 个 `.mc` + `audio.ogg` + `Nya Background.jpeg` |
+| `beatmap\1956659_4K\` | 5 `.mc` + `audio.ogg` + `Nya Background.jpeg` |
+| `beatmap\1956659_7K\` | 6 `.mc` + `audio.ogg` + `Nya Background.jpeg` |
 
-难度名就是本工具生成的版本名（`4K // keksik's Meow :3`、`7K // Another` …），
-音符数与源谱面逐一吻合（4K: 1267/825/1073/532/304；7K: 1500/346/773/1046/552/1905）。
+The difficulty names are the version names this tool generated (`4K // keksik's Meow :3`,
+`7K // Another`, …), and the note counts match the source charts one by one (4K: 1267/825/1073/532/304;
+7K: 1500/346/773/1046/552/1905).
 
-> 注意：Malody 4.x 的选歌界面**按键数分组显示**（同一首歌的 4K 与 7K 在不同键数分页里），
-> 所以导入 7K 后不会出现在 4K 那一页 —— 切到 7K 分页即可看到，不是导入失败。
+> Note: Malody 4.x **groups the song list by key count** (the 4K and 7K versions of a song live on
+> different key-count pages), so an imported 7K chart won't appear on the 4K page — switch to the 7K
+> page. It is not a failed import.
 
-**格式吻合度**：本工具默认写出的每个字段，4.3.7 自己的文件都在用；4.3.7 半数以上文件使用的字段，本工具一个都没漏。
+**Field agreement**: every field this tool writes by default is used by 4.3.7's own files, and no
+field used by more than half of 4.3.7's files is missing from this tool's output.
 
 <details>
-<summary>展开逐字段核对表（61 个 <code>.mc</code> 样本）</summary>
+<summary>Expand the field-by-field table (61 <code>.mc</code> samples)</summary>
 
-`<4.3.7>\beatmap\` 下 61 个可解析的 `.mc`，方言判定：**方言 A 60 个、方言 B 0 个**。
+Of the 61 parseable `.mc` files under `<4.3.7>\beatmap\`, dialect classification: **dialect A 60,
+dialect B 0**.
 
-| 字段 | 4.3.7 使用率 | 本工具是否写出 |
+| Field | 4.3.7 usage | Written by this tool |
 | --- | --- | --- |
 | `meta.time` | 61/61 | ✓ |
 | `meta.creator` / `background` / `version` / `id` / `mode` / `song` / `mode_ext` | 61/61 | ✓ |
@@ -467,80 +497,88 @@ osu! HitObject 第 6 段的 `hitSample` 格式为 `normalSet:additionSet:index:v
 | `top.extra` | 55/61 | ✓ |
 | `bgm.sound` / `type` | 56/61 | ✓ |
 | `bgm.vol` | 55/61 | ✓ |
-| `note.endbeat`（长按） | 43/61 | ✓ |
+| `note.endbeat` (long notes) | 43/61 | ✓ |
 | `bgm.offset` | 37/61 | ✓ |
 | `meta.$ver` | 30/61 | ✓ |
 | `top.effect` | 30/61 | ✓ |
-| `meta.preview` | 23/61 | ✓（有预览点时） |
-| `song.titleorg` / `artistorg` | 14/61 | ✓（与原文不同时） |
+| `meta.preview` | 23/61 | ✓ (when a preview point exists) |
+| `song.titleorg` / `artistorg` | 14/61 | ✓ (when different from the romanized name) |
 | `mode_ext.bar_begin` | 6/61 | ✓ |
-| `mode_ext.speed` | 13/61 | ✗（未写，4.3.7 多数文件也没有） |
-| `aimode` / `song.file` / `song.bpm` / `noteref` | **0/61** | ✗（方言 B 专用，默认不写） |
+| `mode_ext.speed` | 13/61 | ✗ (not written; most 4.3.7 files lack it too) |
+| `aimode` / `song.file` / `song.bpm` / `noteref` | **0/61** | ✗ (dialect B only, not written by default) |
 
-旁证：`malody.exe` 中含 `$ver`、`titleorg`、`artistorg` 等方言 A 的字段名，而 `aimode` 完全不出现。
+Corroborating evidence: `malody.exe` contains dialect A field names such as `$ver`, `titleorg`,
+`artistorg`, while `aimode` does not appear at all.
 
 </details>
 
-### 关于 `--mc-style minimal`
+### About `--mc-style minimal`
 
-方言 B（`aimode` / `song.file` / `song.bpm` / `time[].delay` / `mode_ext.speed` / 无 `effect`+`extra`）
-在 **4.3.7 曲库中出现 0 次**，也不是 MalodyV 接受本工具产物所必需。
-因此默认 `full` 就是两个版本通用的形态，`minimal` 仅作为备用保留。
+Dialect B (`aimode` / `song.file` / `song.bpm` / `time[].delay` / `mode_ext.speed` / no
+`effect`+`extra`) appears **0 times in the 4.3.7 library**, and is not required for MalodyV to accept
+this tool's output. So the default `full` is the shape both versions accept, and `minimal` is kept
+only as a fallback.
 
-## 已验证
+## Verified
 
-| 测试 | 规模 | 结果 |
+| Test | Scale | Result |
 | --- | --- | --- |
-| Malody 原始 → osz → mcz 往返 | 5,483 音符 | 音符/长按/列/长按标记 **全部一致**；时间偏差最大 0.947ms、平均 0.021ms；BGM offset 精确还原 |
-| osu! 谱面库批量往返（osu → mc → osu） | 45 集 / 258 谱 / **661,862 音符** | 时间偏差比较 703,008 次：最大 **2ms**、平均 **0.21ms**、>5ms **0 个**；列不一致 **0**；长按标记 **0**；结构问题 **0** |
-| 绿线（SV）往返 | 6,842 条 | 卷速倍率**全部一致**，不一致 **0** |
-| 自定义音效往返 | — | osu `hitSample` 文件名 ⇄ Malody `note.sound` 双向保留（单点、长按分别验证） |
-| 产出 `.mcz` 结构 | 258 谱 | 顶层键、meta 键、`mode=0`、`mode_ext.column`、BGM `type=1` 与真实 Malody 谱面一致；零负小节；分母全部整除 288 |
-| ZIP 完整性 | — | Python `zipfile.testzip()` CRC 全部通过 |
-| 网页应用内联核心 | — | 与 `core.mjs` **逐字符一致**；正向产物与 CLI **字节一致**；反向产物**语义一致** |
+| Malody original → osz → mcz round trip | 5,483 notes | Notes / holds / columns / hold flags **all identical**; max time deviation 0.947ms, mean 0.021ms; BGM offset restored exactly |
+| osu! library batch round trip (osu → mc → osu) | 45 sets / 258 charts / **661,862 notes** | 703,008 time-deviation comparisons: max **2ms**, mean **0.21ms**, >5ms **0**; column mismatches **0**; hold-flag mismatches **0**; structural issues **0** |
+| Green line (SV) round trip | 6,842 entries | Scroll multipliers **all identical**, mismatches **0** |
+| Custom hitsound round trip | — | osu `hitSample` filename ⇄ Malody `note.sound` preserved both ways (tap and hold verified separately) |
+| Output `.mcz` structure | 258 charts | Top-level keys, meta keys, `mode=0`, `mode_ext.column`, BGM `type=1` match real Malody charts; zero negative measures; every denominator divides 288 |
+| ZIP integrity | — | Python `zipfile.testzip()` passes for all CRCs |
+| Web app inlined core | — | **Character-identical** to `core.mjs`; forward output **byte-identical** to the CLI; reverse output **semantically identical** |
 
-上表第 2、3、5 行可用仓库里的脚本自行复现（需要本地有 osu! 曲库）：
+Rows 2, 3 and 5 can be reproduced with the script in this repository (requires a local osu! library):
 
 ```bash
 node batch_test.mjs "D:\osu!\Songs" 45
 ```
 
-脚本会打印完整的分项统计（音符数、长按结束比对次数、绿线条目、不一致数），
-而不是只给一个总数——数字可以逐项核对。
+The script prints a full breakdown (note count, hold-end comparisons, green-line entries, mismatch
+counts) rather than a single total — every number can be checked item by item.
 
-## 已知限制
+## Known limitations
 
-- **音效类型**：osu 的 `hitSound` 位掩码（Whistle / Clap / Finish）**无法映射**——
-  它指的是「用哪一类音效」，而 Malody 的 `sound` 指的是「播放哪个文件」，
-  两者概念不同，缺少音色库就无法对应。
-  可以映射的是 osu HitObject 里**明确写了文件名**的自定义 sample（⇄ `note.sound`）。
-- **模式**：只处理 osu!mania（`Mode: 3`）；其他模式（standard/taiko/catch）会跳过并提示。
-  Malody 侧统一输出 `mode: 0`（键模式）。
-- **混键数**：同一谱面集含 4K 和 7K 时会自动拆成多个 `.mcz`。
-- 只支持非 ZIP64 的压缩包（谱面包通常远小于 4GB）。
+- **Hitsound types**: osu!'s `hitSound` bitmask (Whistle / Clap / Finish) **cannot be mapped** — it
+  says *which kind* of hitsound to use, whereas Malody's `sound` says *which file* to play. They are
+  different concepts, and without a sample bank there is no correspondence.
+  What *can* be mapped is the custom sample where the osu! HitObject **names a file explicitly**
+  (⇄ `note.sound`).
+- **Mode**: only osu!mania (`Mode: 3`) is handled; other modes (standard/taiko/catch) are skipped with
+  a notice. On the Malody side the output is always `mode: 0` (key mode).
+- **Mixed key counts**: a chart set containing both 4K and 7K is split into multiple `.mcz` files.
+- Only non-ZIP64 archives are supported (chart packages are far below 4GB in practice).
 
-## 致谢
+## Credits
 
-本项目的格式逆向工作参考了 **rmstZ**（作者 [lrfasd](https://lrfasd.github.io/rmstZ/)，`Copyright © 心のsky Group`）
-与 **rconv**（[prefixaut/rconv](https://github.com/prefixaut/rconv)）。
+The format reverse-engineering in this project referenced **rmstZ** (by
+[lrfasd](https://lrfasd.github.io/rmstZ/), `Copyright © 心のsky Group`) and **rconv**
+([prefixaut/rconv](https://github.com/prefixaut/rconv)).
 
-转换逻辑（`core.mjs`）为**独立实现，未直接复制任何一方的代码**。
+The conversion logic (`core.mjs`) is an **independent implementation and does not copy code from
+either**.
 
-完整出处、参考到的具体实现、授权说明与已知差异，见 **[CREDITS.md](CREDITS.md)**。
+Full sources, the specific implementations referenced, licensing notes and known differences are in
+**[CREDITS.md](CREDITS.md)**.
 
-> ⚠️ rmstZ 仓库未附带 LICENSE，本项目**不转载、不分发**该 HTML 文件；
-> 需要请前往[官方页面](https://lrfasd.github.io/rmstZ/)获取。
+> ⚠️ The rmstZ repository ships no LICENSE. This project **does not redistribute** that HTML file; get
+> it from the [official page](https://lrfasd.github.io/rmstZ/).
 
-## 许可证
+## License
 
-本项目以 **MIT License** 发布，见 [LICENSE](LICENSE)。
+Released under the **MIT License**, see [LICENSE](LICENSE).
 
 ```
 Copyright (c) 2026 ScarletSnow123
 ```
 
-MIT 只覆盖本项目自己的代码。第三方资料的出处与授权情况见 [CREDITS.md](CREDITS.md)：
+MIT covers only this project's own code. For third-party sources and their licensing, see
+[CREDITS.md](CREDITS.md):
 
-- **rmstZ** 未附带 LICENSE，本项目既不转载也不分发其文件，仅在文档中致谢
-- **rconv** 为独立第三方项目，本项目仅参考其公开的格式类型定义
-
+- **rmstZ** ships no LICENSE; this project neither redistributes nor repackages its files, and only
+  credits it in the documentation
+- **rconv** is an independent third-party project; this project only references its public format
+  type definitions
