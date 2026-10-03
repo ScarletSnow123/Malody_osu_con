@@ -26,12 +26,6 @@
 - [致谢](#致谢)
 - [许可证](#许可证)
 
-> 目录里的锚点由 GitHub 自动生成的规则算出。改动任何 `##` 标题后，
-> 用 `node tools/gh-slug.mjs README.md` 重新核对一遍锚点即可。
->
-> 另外 GitHub 对 README 自带**大纲导航**：README 右上角的列表图标（Outline）
-> 会列出全部标题，点一下就能跳转，无需依赖上面的目录。
-
 ## 为什么需要反向转换
 
 Malody 能**直接读取** osu! 谱面来玩，但**无法编辑**——这是两条独立代码路径：
@@ -324,18 +318,10 @@ node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
 | `compare_roundtrip.py` | Malody→osu→Malody 往返保真度对比 |
 | `batch_test.mjs` | 在真实 osu! 谱面库上做 osu→mc→osu 批量保真度测试 |
 | `analyze.py` / `scan_*.py` | 格式逆向与统计（含时间公式校准、T0 分布统计） |
-| `tools/gh-slug.mjs` | 用 GitHub 官方规则算出标题锚点（改标题后核对目录用） |
-| `tools/check-toc.mjs` | 校验目录里的锚点链接是否都能命中真实标题 |
+| `tools/gh-slug.mjs` | 按 GitHub 官方规则算出标题锚点 |
+| `tools/check-toc.mjs` | 校验目录锚点是否都能命中真实标题 |
 
 改完 `core.mjs` 后重新构建：`node build.mjs`
-
-改动过任何 `##` 标题后，核对目录锚点：
-
-```bash
-node tools/check-toc.mjs README.md
-```
-
-输出 `✓ 全部锚点链接都能命中真实标题` 即表示目录可用；否则它会列出失效链接。
 
 ## 格式依据
 
