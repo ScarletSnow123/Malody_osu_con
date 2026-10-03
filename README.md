@@ -7,6 +7,31 @@
 | `.mcz` → `.osz` | Malody 谱面拿去 osu! 玩 |
 | `.osz` / 含 .osu 的 zip / osu! 歌曲文件夹 → `.mcz` | **osu! 谱面拿去 Malody 编辑器修改** |
 
+## 目录
+
+- [为什么需要反向转换](#为什么需要反向转换)
+- [该用哪个入口](#该用哪个入口)
+- [共同前提：Node.js](#共同前提nodejs)
+- [方式一：图形界面 —— `GUI.bat`](#方式一图形界面--guibat推荐)
+- [方式二：拖放 —— `转换.bat`](#方式二拖放--转换bat步骤最少)
+- [方式三：网页应用 —— `Malody2osu.html`](#方式三网页应用--malody2osuhtml)
+- [方式四：命令行 —— `命令行.bat`](#方式四命令行--命令行bat)
+- [四个入口对比](#四个入口对比)
+- [常见问题](#常见问题)
+- [文件说明](#文件说明)
+- [格式依据](#格式依据)
+- [版本兼容（Malody V / 4.x）](#版本兼容malody-v--4x)
+- [已验证](#已验证)
+- [已知限制](#已知限制)
+- [致谢](#致谢)
+- [许可证](#许可证)
+
+> 目录里的锚点由 GitHub 自动生成的规则算出。改动任何 `##` 标题后，
+> 用 `node tools/gh-slug.mjs README.md` 重新核对一遍锚点即可。
+>
+> 另外 GitHub 对 README 自带**大纲导航**：README 右上角的列表图标（Outline）
+> 会列出全部标题，点一下就能跳转，无需依赖上面的目录。
+
 ## 为什么需要反向转换
 
 Malody 能**直接读取** osu! 谱面来玩，但**无法编辑**——这是两条独立代码路径：
@@ -299,8 +324,18 @@ node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
 | `compare_roundtrip.py` | Malody→osu→Malody 往返保真度对比 |
 | `batch_test.mjs` | 在真实 osu! 谱面库上做 osu→mc→osu 批量保真度测试 |
 | `analyze.py` / `scan_*.py` | 格式逆向与统计（含时间公式校准、T0 分布统计） |
+| `tools/gh-slug.mjs` | 用 GitHub 官方规则算出标题锚点（改标题后核对目录用） |
+| `tools/check-toc.mjs` | 校验目录里的锚点链接是否都能命中真实标题 |
 
 改完 `core.mjs` 后重新构建：`node build.mjs`
+
+改动过任何 `##` 标题后，核对目录锚点：
+
+```bash
+node tools/check-toc.mjs README.md
+```
+
+输出 `✓ 全部锚点链接都能命中真实标题` 即表示目录可用；否则它会列出失效链接。
 
 ## 格式依据
 
