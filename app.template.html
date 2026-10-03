@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Malody ⇄ osu!mania 转换器</title>
+<style>
+  :root {
+    --bg: #12141c; --panel: #1b1e29; --panel2: #232735; --line: #2e3342;
+    --text: #e6e8f0; --dim: #98a0b8; --accent: #ff66aa; --accent2: #6cc6ff;
+    --ok: #4ade80; --warn: #fbbf24; --err: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: radial-gradient(1200px 600px at 50% -200px, #2a2140 0%, var(--bg) 60%);
+    color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: .3px; }
+  h1 .a { color: var(--accent); }
+  h1 .b { color: var(--accent2); }
+  .sub { color: var(--dim); font-size: 14px; margin-bottom: 22px; line-height: 1.75; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+  #drop { border: 2px dashed #3b4155; border-radius: 14px; padding: 42px 20px; text-align: center;
+          cursor: pointer; transition: .18s; background: var(--panel2); }
+  #drop:hover { border-color: var(--accent); }
+  #drop.over { border-color: var(--accent); background: #2b2135; transform: scale(1.005); }
+  #drop .big { font-size: 17px; margin-bottom: 8px; }
+  #drop .small { color: var(--dim); font-size: 13px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; margin-top: 16px; }
+  .opt { display: flex; flex-direction: column; gap: 6px; }
+  .opt label { font-size: 12px; color: var(--dim); }
+  select, input[type=number] {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; min-width: 132px;
+  }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--dim); margin-top: 16px; line-height: 1.85; }
+  .hint code { background: #2b3040; padding: 1px 5px; border-radius: 4px; }
+  #log { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px; line-height: 1.7; }
+  #log .line { padding: 2px 0; white-space: pre-wrap; word-break: break-all; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); } .dim { color: var(--dim); }
+  .res { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0; background: var(--panel2); }
+  .res .name { color: var(--accent2); font-weight: 600; margin-bottom: 4px; }
+  .res .meta { color: var(--dim); font-size: 12px; margin-bottom: 10px; word-break: break-all; }
+  .res table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+  .res td { padding: 3px 0; vertical-align: top; border-top: 1px solid #2b3040; }
+  .res td:first-child { color: var(--dim); width: 108px; }
+  .res a.dl { display: inline-block; margin-top: 12px; padding: 8px 16px; border-radius: 8px;
+              background: var(--accent); color: #12141c; text-decoration: none; font-weight: 700; font-size: 13px; }
+  .res a.dl:hover { filter: brightness(1.1); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Malody <span class="a">⇄</span> osu<span class="b">!mania</span></h1>
+  <div class="sub">
+    把 <b>.mcz</b> 拖进来 → 得到可导入 osu! 的 <b>.osz</b><br />
+    把 <b>.osz</b>（或含 .osu 的 zip / 整个 osu! 歌曲文件夹）拖进来 → 得到<b>可用 Malody 编辑器打开修改</b>的 <b>.mcz</b><br />
+    纯本地运行，不上传任何文件，离线可用。
+  </div>
+
+  <div class="card">
+    <div id="drop">
+      <div class="big">📦 把 .mcz / .osz / .zip 拖到这里</div>
+      <div class="small">或点击选择文件（支持多选 / 一次拖多个）</div>
+      <input type="file" id="file" accept=".mcz,.osz,.zip" multiple class="hidden" />
+      <div class="small" style="margin-top:14px">
+        也可以直接选一个文件夹（osu! 歌曲文件夹 → .mcz；含 .mcz 的文件夹 → 逐个 .osz）：
+        <button id="dirBtn" type="button">📁 选择文件夹</button>
+      </div>
+      <input type="file" id="dir" webkitdirectory class="hidden" />
+    </div>
+    <div class="opts">
+      <div class="opt">
+        <label>键数（默认自动读取）</label>
+        <select id="key">
+          <option value="">自动</option>
+          <option value="4">4K</option><option value="5">5K</option><option value="6">6K</option>
+          <option value="7">7K</option><option value="8">8K</option><option value="9">9K</option>
+          <option value="10">10K</option>
+        </select>
+      </div>
+      <div class="opt">
+        <label>整体时间微调 (ms，正数=延后)</label>
+        <input type="number" id="shift" value="0" step="1" />
+      </div>
+      <div class="opt">
+        <label>输出压缩</label>
+        <select id="compress">
+          <option value="1">开启（体积小）</option>
+          <option value="0">关闭（兼容性最好）</option>
+        </select>
+      </div>
+      <div class="opt">
+        <label title="默认按 Malody 的 offset 语义换算音画同步">节奏同步换算</label>
+        <select id="sync">
+          <option value="1">按 Malody offset 换算（推荐）</option>
+          <option value="0">不平移（若成品整体偏移则选此项）</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint">
+      <b>换算规则</b>：拍位置 <code>[a,b,c]</code> = <code>a + b/c</code>；BPM 变速点积分成毫秒；长按输出 osu mania 的 <code>type 128</code>；<br />
+      BGM 的 <code>offset</code> 按「音频位置 = 谱面时间 − offset」换算音画同步；音频与背景图随包搬运；<br />
+      整小节平移用于消除负小节（保持小节线对齐）。<br />
+      反向转换会跳过非 mania 谱面（Malody 键模式对应 osu!mania），并在混键数时自动拆成多个包。
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="log"><div class="line dim">就绪。</div></div>
+  </div>
+</div>
+
+<script type="module">
+/*__CORE__*/
+
+/* ================================================================== *
+ * UI
+ * ================================================================== */
+const $ = (id) => document.getElementById(id);
+const logEl = $('log');
+const dropEl = $('drop');
+const fileEl = $('file');
+let logStarted = false;
+
+function log(msg, cls) {
+  if (!logStarted) { logEl.innerHTML = ''; logStarted = true; }
+  const d = document.createElement('div');
+  d.className = 'line' + (cls ? ' ' + cls : '');
+  d.textContent = msg;
+  logEl.appendChild(d);
+  d.scrollIntoView({ block: 'nearest' });
+}
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function addResult(outName, blobUrl, rows, entries, warnings) {
+  const card = document.createElement('div');
+  card.className = 'res';
+  card.innerHTML =
+    '<div class="name">✅ ' + esc(outName) + '</div>' +
+    '<div class="meta">' + esc(entries.join(' · ')) + '</div>' +
+    '<table>' + rows + '</table>' +
+    (warnings.length
+      ? '<table>' + warnings.map((w) => '<tr><td>提示</td><td>' + esc(w) + '</td></tr>').join('') + '</table>'
+      : '');
+  const a = document.createElement('a');
+  a.className = 'dl';
+  a.textContent = '⬇ 下载';
+  a.href = blobUrl;
+  a.download = outName;
+  card.appendChild(a);
+  logEl.appendChild(card);
+  a.click();
+}
+
+dropEl.addEventListener('click', () => fileEl.click());
+fileEl.addEventListener('change', () => {
+  if (fileEl.files.length) handle([...fileEl.files]);
+  fileEl.value = '';
+});
+// 文件夹选择按钮：阻止冒泡，否则会同时触发 #drop 的文件选择
+$('dirBtn').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  $('dir').click();
+});
+$('dir').addEventListener('click', (ev) => ev.stopPropagation());
+$('dir').addEventListener('change', () => {
+  const fs = [...$('dir').files];
+  $('dir').value = '';
+  if (fs.length) handleFolder(fs);
+});
+['dragenter', 'dragover'].forEach((e) =>
+  dropEl.addEventListener(e, (ev) => { ev.preventDefault(); dropEl.classList.add('over'); }));
+['dragleave', 'dragend'].forEach((e) =>
+  dropEl.addEventListener(e, () => dropEl.classList.remove('over')));
+dropEl.addEventListener('drop', (ev) => {
+  ev.preventDefault();
+  dropEl.classList.remove('over');
+  const fs = [...ev.dataTransfer.files].filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
+  if (!fs.length) { log('拖进来的文件不是 .mcz / .osz / .zip', 'err'); return; }
+  handle(fs);
+});
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => e.preventDefault());
+
+async function handle(files) {
+  const keyOpt = $('key').value ? Number($('key').value) : null;
+  const shiftMs = Number($('shift').value) || 0;
+  const compress = $('compress').value === '1';
+  const noSync = $('sync').value === '0';
+  const opts = { key: keyOpt, shiftMs, compress, noSync };
+
+  logStarted = false;
+  log('开始处理 ' + files.length + ' 个文件…');
+
+  for (const f of files) {
+    log('');
+    log('▶ ' + f.name + '  (' + fmtSize(f.size) + ')', 'ok');
+    const lower = f.name.toLowerCase();
+    const base = f.name.replace(/\.(mcz|osz|zip)$/i, '');
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      const t0 = performance.now();
+
+      if (lower.endsWith('.mcz')) {
+        /* ---------- Malody → osu!mania ---------- */
+        const { data, report, entries } = await convertMczToOsz(buf, opts);
+        const dt = Math.round(performance.now() - t0);
+        const outName = base + '.osz';
+        const rows = report.charts
+          .map((c) =>
+            '<tr><td>谱面</td><td>' + esc(c.file) + '</td></tr>' +
+            '<tr><td>来源</td><td>' + esc(c.from) + '</td></tr>' +
+            '<tr><td>键数</td><td>' + c.key + 'K</td></tr>' +
+            '<tr><td>音符 / 长按</td><td>' + c.notes + ' / ' + c.holds + '</td></tr>' +
+            '<tr><td>BPM 变速点</td><td>' + c.timingPoints + '</td></tr>' +
+            '<tr><td>首 / 末音符</td><td>' + (c.firstMs / 1000).toFixed(3) + 's / ' + (c.lastMs / 1000).toFixed(3) + 's</td></tr>')
+          .join('');
+        const extra =
+          '<tr><td>音频</td><td>' + esc(report.audio || '(无)') + '</td></tr>' +
+          '<tr><td>背景</td><td>' + esc(report.background || '(无)') + '</td></tr>' +
+          '<tr><td>体积 / 耗时</td><td>' + fmtSize(data.length) + ' / ' + dt + 'ms</td></tr>';
+        addResult(outName, URL.createObjectURL(new Blob([data], { type: 'application/zip' })),
+          rows + extra, entries.map((e) => e.name), report.warnings);
+        log('  已生成并开始下载 ' + outName, 'ok');
+      } else {
+        /* ---------- osu!mania → Malody ---------- */
+        await emitMcz(buf, base, opts, performance.now() - t0);
+      }
+    } catch (e) {
+      log('  失败: ' + (e && e.message ? e.message : e), 'err');
+      console.error(e);
+    }
+  }
+  log('');
+  log('.mcz 产物用 Malody 打开即可编辑；.osz 产物拖到 osu! 窗口即可导入。', 'ok');
+}
+
+const AUDIO_RE = /\.(mp3|ogg|wav|m4a|aac|flac)$/i;
+const IMAGE_RE = /\.(jpg|jpeg|png|bmp|gif)$/i;
+
+/** 把 osu! 歌曲文件夹（多个文件）打包到内存 zip，再走 osu→Malody */
+async function handleFolder(files) {
+  const keyOpt = $('key').value ? Number($('key').value) : null;
+  const shiftMs = Number($('shift').value) || 0;
+  const compress = $('compress').value === '1';
+  const noSync = $('sync').value === '0';
+
+  logStarted = false;
+  const picked = files.filter((f) => /\.osu$/i.test(f.name) || AUDIO_RE.test(f.name) || IMAGE_RE.test(f.name));
+  const packs = files.filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
+
+  // 没有 .osu → 当成「装满谱面包的文件夹」，逐个转换（两个方向都支持）
+  if (!picked.some((f) => /\.osu$/i.test(f.name))) {
+    if (!packs.length) {
+      log('这个文件夹里既没有 .osu，也没有 .mcz / .osz / .zip', 'err');
+      return;
+    }
+    log('文件夹里没有 .osu，按谱面包逐个转换（共 ' + packs.length + ' 个）', 'ok');
+    await handle(packs);
+    return;
+  }
+
+  log('文件夹：共 ' + files.length + ' 个文件，其中可用 ' + picked.length + ' 个', 'ok');
+  const entries = [];
+  for (const f of picked) entries.push({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+  const zip = await writeZip(entries, { compress: true });
+  const folderName = (picked[0].webkitRelativePath || 'converted').split('/')[0].replace(/[\\/:*?"<>|]/g, '_');
+  log('  已打包 ' + fmtSize(zip.length) + '，开始转换…');
+  try {
+    await emitMcz(zip, folderName, { key: keyOpt, shiftMs, compress, noSync }, 0);
+  } catch (e) {
+    log('  失败: ' + (e && e.message ? e.message : e), 'err');
+    console.error(e);
+  }
+}
+
+/** 共用：把内存 zip 转成 .mcz 并输出下载卡片 */
+async function emitMcz(buf, base, opts, elapsed) {
+  const t0 = performance.now();
+  const { packages, warnings } = await convertOszToMcz(buf, opts);
+  const dt = elapsed ? Math.round(elapsed) : Math.round(performance.now() - t0);
+  for (const w of warnings) log('  ! ' + w, 'warn');
+  for (const pkg of packages) {
+    const outName = packages.length === 1 ? base + '.mcz' : base + '_' + pkg.report.key + 'K.mcz';
+    const rows = pkg.report.charts
+      .map((c) =>
+        '<tr><td>难度</td><td>' + esc(c.version) + '</td></tr>' +
+        '<tr><td>标题</td><td>' + esc(c.title) + ' — ' + esc(c.artist) + '</td></tr>' +
+        '<tr><td>文件</td><td>' + esc(c.file) + '  ← ' + esc(c.from) + '</td></tr>' +
+        '<tr><td>音符 / 长按</td><td>' + c.notes + ' / ' + c.holds + '</td></tr>' +
+        '<tr><td>BPM 变速点</td><td>' + c.timingPoints + '</td></tr>')
+      .join('');
+    const extra =
+      '<tr><td>键数</td><td>' + pkg.report.key + 'K</td></tr>' +
+      '<tr><td>体积 / 耗时</td><td>' + fmtSize(pkg.data.length) + ' / ' + dt + 'ms</td></tr>';
+    addResult(outName, URL.createObjectURL(new Blob([pkg.data], { type: 'application/zip' })),
+      rows + extra, pkg.entries.map((e) => e.name), []);
+    log('  已生成并开始下载 ' + outName + '（' + pkg.report.key + 'K，' + pkg.report.charts.length + ' 个难度）', 'ok');
+  }
+}
+</script>
+</body>
+</html>

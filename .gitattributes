@@ -1,0 +1,19 @@
+# 默认按文本处理，仓库内统一 LF
+* text=auto eol=lf
+
+# Windows 脚本必须用 CRLF，否则 cmd / PowerShell 解析可能出问题
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制
+*.mcz binary
+*.osz binary
+*.ogg binary
+*.mp3 binary
+*.wav binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.zip binary
