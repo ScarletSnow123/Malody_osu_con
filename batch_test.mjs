@@ -29,6 +29,8 @@ let folders = 0;
 let charts = 0;
 let skippedNonMania = 0;
 let failures = 0;
+let totalNotes = 0; // 参与比对的对象总数（音符）
+let totalHoldEnds = 0; // 其中长按的「结束时间」额外比对的次数
 const allDev = [];
 const colMismatch = [];
 const holdMismatch = [];
@@ -142,6 +144,7 @@ for (const d of dirs) {
     // 这里在 ±3 位窗口内寻找时间最近且尚未使用的配对。
     const used = new Uint8Array(b.length);
     let chartMax = 0;
+    totalNotes += a.length;
     for (let i = 0; i < a.length; i++) {
       // 候选打分：列相同的优先（权重远大于时间差），其次时间最近
       let pick = -1;
@@ -173,6 +176,7 @@ for (const d of dirs) {
       if (a[i].hold && b[pick].hold && a[i].end != null && b[pick].end != null) {
         const d2 = Math.abs(a[i].end - b[pick].end);
         allDev.push(d2);
+        totalHoldEnds++;
         if (d2 > chartMax) chartMax = d2;
       }
     }
@@ -218,6 +222,13 @@ console.log('处理的谱面集   : ' + folders);
 console.log('往返测试的谱面 : ' + charts);
 console.log('跳过的非 mania : ' + skippedNonMania);
 console.log('失败           : ' + failures);
+console.log('');
+console.log('比对规模:');
+console.log('  音符（列/长按/时间）  : ' + totalNotes + '  ×  每个比对 4 项 = ' + totalNotes * 4);
+console.log('  长按结束时间          : ' + totalHoldEnds);
+console.log('  绿线条目              : ' + greenTotal);
+console.log('  时间偏差比较次数      : ' + allDev.length + '  (音符 ' + totalNotes + ' + 长按结束 ' + totalHoldEnds + ')');
+console.log('  合计原子比对次数      : ' + (totalNotes * 4 + totalHoldEnds + greenTotal));
 console.log('');
 console.log('时间偏差 (osu → mc → osu，单位 ms):');
 console.log('  样本数         : ' + allDev.length);
