@@ -9,9 +9,16 @@ extract_src.mcz
 
 # ── 临时文件 ────────────────────────────────────────────────
 .inline_runner.mjs
+.inline_fwd.osz
+.inline_rev.mcz
 .chk.mjs
 *.tmp
 *.log
+
+# ── Python 字节码缓存（内含绝对路径，切勿入库）─────────────
+__pycache__/
+*.pyc
+*.pyo
 
 # ── 系统 / 编辑器 ───────────────────────────────────────────
 Thumbs.db

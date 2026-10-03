@@ -17,8 +17,8 @@ echo     .osz / .zip / folder      -^> .mcz   (for Malody editor)
 echo     .osu                      -^> .mc
 echo.
 echo   Examples:
-echo     node cli.mjs "D:\osu!\Songs\226766 Sound Piercer ESPITZ - NOVO HORIZONTE (TakJun)"
-echo     node cli.mjs "Echoes Of Memoria.mcz" -o "out.osz"
+echo     node cli.mjs "D:\osu!\Songs\SomeSong"
+echo     node cli.mjs "some-pack.mcz" -o "out.osz"
 echo.
 echo   Working directory is already set to this folder.
 echo ============================================================

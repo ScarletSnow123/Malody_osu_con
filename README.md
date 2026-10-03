@@ -263,13 +263,13 @@ node cli.mjs <输入> [-o 输出] [选项]
 
 ```bash
 :: 单个 osu! 歌曲文件夹 → .mcz
-node cli.mjs "D:\OSU!\Songs\226766 Sound Piercer ESPITZ - NOVO HORIZONTE (TakJun)" -o "输出.mcz"
+node cli.mjs "D:\osu!\Songs\某曲目" -o "输出.mcz"
 
 :: Malody 谱面包 → .osz
-node cli.mjs "Echoes Of Memoria.mcz" -o "输出.osz"
+node cli.mjs "某谱面包.mcz" -o "输出.osz"
 
 :: 批量：整个 osu! 曲库 → 全部转成 .mcz，产物集中到 D:\转换输出
-node cli.mjs "D:\OSU!\Songs" -r -o "D:\转换输出"
+node cli.mjs "D:\osu!\Songs" -r -o "D:\转换输出"
 
 :: 一个装满 .mcz 的文件夹 → 每个都转成 .osz
 node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
@@ -314,10 +314,9 @@ node cli.mjs "D:\Malody谱包" -o "D:\转出来的osz"
 | `cli.mjs` | 命令行入口（含目录输入） |
 | `app.template.html` | 界面模板（含 `/*__CORE__*/` 占位符） |
 | `build.mjs` | 把 `core.mjs` 内联进模板 → `Malody2osu.html` |
-| `verify.py` | 校验 `.osz`（CRC、音符数、列映射、时间轴） |
-| `compare_roundtrip.py` | Malody→osu→Malody 往返保真度对比 |
-| `batch_test.mjs` | 在真实 osu! 谱面库上做 osu→mc→osu 批量保真度测试 |
-| `analyze.py` / `scan_*.py` | 格式逆向与统计（含时间公式校准、T0 分布统计） |
+| `verify.py` | 校验 `.osz`：ZIP 完整性、音符数、列映射、时间轴、音画余量 |
+| `compare_roundtrip.py` | 对比两个 `.mc` / `.mcz`（原始 vs 往返），输出逐音符偏差 |
+| `batch_test.mjs` | 在 osu! 曲库上批量做 osu→mc→osu 保真度测试 |
 | `tools/gh-slug.mjs` | 按 GitHub 官方规则算出标题锚点 |
 | `tools/check-toc.mjs` | 校验目录锚点是否都能命中真实标题 |
 
