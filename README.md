@@ -139,6 +139,12 @@ output on a real machine — [`docs/compatibility.md`](docs/compatibility.md).
 - **Mode**: only osu!mania (`Mode: 3`); other modes are skipped with a notice. Output is
   always `mode: 0` on the Malody side.
 - **Mixed key counts**: 4K + 7K in one set is split into multiple `.mcz` files.
+- **Foreign chart files inside a package**: a `.mcz` only reads `.mc`, an `.osz` only reads
+  `.osu`. If the other side's charts are packed in (e.g. a `.osu` inside a `.mcz`, or a `.mc`
+  inside an `.osz`) they are **not converted**, but each one is listed in the warnings instead
+  of being dropped silently. Use the entry point for that direction to convert them properly.
+- **Renaming the extension does not fool the converter**: renaming an `.osz` to `.mcz` (or the
+  reverse) fails at the parse stage — no partial or misaligned output is produced.
 - Only non-ZIP64 archives are supported.
 
 ## Docs

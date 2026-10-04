@@ -479,6 +479,12 @@ export function convertMcToOsu(mc, ctx = {}) {
 const AUDIO_EXT = /\.(mp3|ogg|wav|m4a|aac|flac)$/i;
 const IMAGE_EXT = /\.(jpg|jpeg|png|bmp|gif)$/i;
 
+/** 把文件名列表缩成「a, b, c 等 N 个」，用于告警文案 */
+function briefList(list, max = 3) {
+  if (list.length <= max) return list.join(', ');
+  return `${list.slice(0, max).join(', ')} 等 ${list.length} 个`;
+}
+
 export async function convertMczToOsz(input, opts = {}) {
   const files = await readZip(input);
   const names = [...files.keys()].filter((n) => !files.get(n).dir);
@@ -492,6 +498,16 @@ export async function convertMczToOsz(input, opts = {}) {
 
   const outEntries = [];
   const report = { charts: [], audio: '', background: '', warnings: [] };
+
+  // 包里混进了 osu! 侧的文件（例如有人把 .osu / .osz 直接塞进 .mcz）：
+  // 它们不是 Malody 谱面，会被静默忽略，这里显式提示，免得用户以为已经转换成功。
+  const foreignOsu = names.filter((n) => /\.(osu|osz)$/i.test(n));
+  if (foreignOsu.length) {
+    report.warnings.push(
+      `包里有 ${briefList(foreignOsu)}：不是 Malody 谱面（.mcz 只转换 .mc），已跳过。` +
+        `如需转换 osu! 谱面，请把 .osu / .osz 单独作为输入。`
+    );
+  }
 
   // 先定出音频与背景（多难度共用）
   let audioName = opts.audioName || audioNames[0] || '';
@@ -966,6 +982,16 @@ export async function convertOszToMcz(input, opts = {}) {
   const parsed = [];
   const warnings = [];
   let nonMania = 0;
+
+  // 包里混进了 Malody 谱面（例如有人把 .mc / .mcz 塞进 .osz）：
+  // 它们不是 osu! 谱面，会被静默忽略，这里显式提示，免得用户以为已经转换成功。
+  const foreignMc = names.filter((n) => /\.(mc|mcz)$/i.test(n));
+  if (foreignMc.length) {
+    warnings.push(
+      `包里有 ${briefList(foreignMc)}：不是 osu! 谱面（.osz 只转换 .osu），已跳过。` +
+        `如需转换 Malody 谱面，请把 .mcz / .mc 单独作为输入。`
+    );
+  }
   for (const n of osuNames) {
     try {
       const osu = parseOsu(dec.decode(files.get(n).data));
