@@ -146,6 +146,10 @@ output on a real machine — [`docs/compatibility.md`](docs/compatibility.md).
 - **Renaming the extension does not fool the converter**: renaming an `.osz` to `.mcz` (or the
   reverse) fails at the parse stage — no partial or misaligned output is produced.
 - Only non-ZIP64 archives are supported.
+- **Decompression limits**: an entry inflating beyond **512 MB**, or a package inflating beyond
+  **4 GB** in total, is rejected outright — a guard against "zip bombs" (a few dozen KB expanding
+  to several GB). Real chart packages are orders of magnitude below these numbers; if you really
+  need larger ones, raise the `READ_LIMITS` object exported by `core.mjs`.
 
 ## Docs
 

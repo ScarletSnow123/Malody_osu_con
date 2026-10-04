@@ -54,6 +54,23 @@ const SIG_EOCD = 0x06054b50;
 const SIG_CENTRAL = 0x02014b50;
 const SIG_LOCAL = 0x04034b50;
 
+/**
+ * 解压安全上限。真实谱面包（谱面 JSON + 音频 + 背景，通常几 MB）离这些数量级差得很远，
+ * 设限只为防住恶意构造的「解压炸弹」——几十 KB 的条目解压后膨胀到几个 GB，把内存吃光。
+ * 这是可覆盖的配置对象，程序化调用方若确有大包需求可自行调高。
+ * （条目数不必设限：EOCD 里的 count 是 uint16，最多 65535，本身撑不出内存问题。）
+ */
+export const READ_LIMITS = {
+  maxEntryBytes: 512 * 1024 * 1024, // 单条目解压后 ≤ 512 MB
+  maxTotalBytes: 4 * 1024 * 1024 * 1024, // 整包解压后合计 ≤ 4 GB
+};
+
+function fmtSize(n) {
+  if (n >= 1024 * 1024 * 1024) return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  return (n / 1024).toFixed(1) + ' KB';
+}
+
 function findEOCD(u8, dv) {
   const min = Math.max(0, u8.length - 22 - 0xffff);
   for (let i = u8.length - 22; i >= min; i--) {
@@ -73,17 +90,26 @@ export async function readZip(input) {
   const cdOff = dv.getUint32(eocd + 16, true);
   const dec = new TextDecoder('utf-8');
   const files = new Map();
+  let total = 0;
 
   let p = cdOff;
   for (let i = 0; i < count; i++) {
     if (p + 46 > u8.length || dv.getUint32(p, true) !== SIG_CENTRAL) break;
     const method = dv.getUint16(p + 10, true);
     const compSize = dv.getUint32(p + 20, true);
+    const uncompSize = dv.getUint32(p + 24, true);
     const nameLen = dv.getUint16(p + 28, true);
     const extraLen = dv.getUint16(p + 30, true);
     const commentLen = dv.getUint16(p + 32, true);
     const localOff = dv.getUint32(p + 42, true);
     const name = dec.decode(u8.subarray(p + 46, p + 46 + nameLen));
+
+    // 先用中央目录里声明的大小做一次廉价检查，不必等真解压出来才发现是炸弹
+    if (uncompSize > READ_LIMITS.maxEntryBytes || total + uncompSize > READ_LIMITS.maxTotalBytes) {
+      throw new Error(
+        `ZIP 条目解压后过大（${name}，声明 ${fmtSize(uncompSize)}），已拒绝处理以防解压炸弹`
+      );
+    }
 
     if (dv.getUint32(localOff, true) !== SIG_LOCAL) {
       throw new Error('ZIP 结构损坏：本地文件头签名不正确 (' + name + ')');
@@ -91,12 +117,23 @@ export async function readZip(input) {
     const lNameLen = dv.getUint16(localOff + 26, true);
     const lExtraLen = dv.getUint16(localOff + 28, true);
     const dataStart = localOff + 30 + lNameLen + lExtraLen;
+    if (dataStart + compSize > u8.length) {
+      throw new Error('ZIP 结构损坏：条目数据超出文件范围 (' + name + ')');
+    }
     const raw = u8.subarray(dataStart, dataStart + compSize);
 
     let data;
     if (method === 0) data = raw.slice();
     else if (method === 8) data = await inflateRaw(raw);
     else throw new Error('不支持的 ZIP 压缩方式 ' + method + '（' + name + '）');
+
+    // 声明的大小可能是假的，解压后再按真实长度核一次
+    if (data.length > READ_LIMITS.maxEntryBytes || total + data.length > READ_LIMITS.maxTotalBytes) {
+      throw new Error(
+        `ZIP 条目解压后过大（${name}，实际 ${fmtSize(data.length)}），已拒绝处理以防解压炸弹`
+      );
+    }
+    total += data.length;
 
     files.set(name, { name, method, data, dir: name.endsWith('/') });
     p += 46 + nameLen + extraLen + commentLen;
