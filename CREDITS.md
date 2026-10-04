@@ -80,6 +80,21 @@ implementation, rconv toward type declarations; the two were cross-checked).
 
 ---
 
+## Contributor acknowledgements
+
+The following people provided chart material and hands-on testing for this project. Our thanks to them:
+
+| Contributor | Contribution |
+| --- | --- |
+| **@Hanemi** | Provided some of the Malody chart samples and carried out **Malody-side** testing (import, playback and display verification in the client) |
+| **@EbonyVeil** | Carried out **HTML-side** testing (functional and cross-browser verification of the single-file `OsuToMalody.html` build) |
+
+The chart samples served the format reverse-engineering and round-trip consistency checks; the
+hands-on testing on both sides covered the key paths — import, playback and display — and was a
+major basis for confirming the format semantics and finalising the implementation.
+
+---
+
 ## Other
 
 ### osu! chart format
@@ -92,6 +107,7 @@ on osu!'s public format documentation, and were batch-verified against 1539 mani
 
 The 4 real `.mcz` samples used for reverse-engineering span 2025-11 to 2026-09 and contain 9 `.mc`
 files in total. It was these samples that revealed the existence of the A / B dialects.
+Some of these samples were provided by **@Hanemi**.
 
 ### Compatibility verification environment
 

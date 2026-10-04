@@ -18,6 +18,24 @@
 > [Issues](https://github.com/ScarletSnow123/Malody_osu_con/issues). Attaching the
 > problematic chart or the full error message speeds things up a lot.
 
+## Table of contents
+
+- [Quick start](#quick-start)
+  - [You need Node.js](#you-need-nodejs)
+  - [The four entry points](#the-four-entry-points)
+  - [GUI](#gui)
+  - [Drag & drop](#drag--drop)
+  - [Command line](#command-line)
+  - [Web app (fallback)](#web-app-fallback)
+- [Format support](#format-support)
+- [Quick problems](#quick-problems)
+- [Tested & verified](#tested--verified)
+- [Known limitations](#known-limitations)
+- [Docs](#docs)
+- [Files](#files)
+- [Credits](#credits)
+- [License](#license)
+
 ## Quick start
 
 ### You need Node.js
@@ -128,6 +146,7 @@ output on a real machine — [`docs/compatibility.md`](docs/compatibility.md).
 | Docs | Contents |
 | --- | --- |
 | [`docs/entries.md`](docs/entries.md) | Node.js installation, all four entry points in detail, CLI options |
+| [`docs/faq.md`](docs/faq.md) | Full FAQ |
 | [`docs/format-spec.md`](docs/format-spec.md) | Format rules (beats, BPM/SV, columns, BGM, offsets) |
 | [`docs/compatibility.md`](docs/compatibility.md) | MalodyV / 4.3.7 dialects, `--mc-style` |
 | [`docs/testing.md`](docs/testing.md) | Verification data and reproduce commands |
@@ -158,6 +177,9 @@ After editing `core.mjs`, rebuild with: `node build.mjs`
 Format reverse-engineering referenced **rmstZ** (by [lrfasd](https://lrfasd.github.io/rmstZ/),
 `Copyright © 心の sky Group`) and **rconv** ([prefixaut/rconv](https://github.com/prefixaut/rconv)).
 `core.mjs` is an **independent implementation, not copied from either**.
+
+Thanks also to **@Hanemi**, who provided some of the Malody chart samples and
+ran the Malody-side testing, and to **@EbonyVeil**, who ran the HTML-side testing.
 
 The rmstZ repository ships no LICENSE. This project **does not redistribute** its files; get
 them from the [official page](https://lrfasd.github.io/rmstZ/). Full sources, licensing and

@@ -19,6 +19,24 @@
 > [Issues](https://github.com/ScarletSnow123/Malody_osu_con/issues) 反馈。
 > **附上出问题的谱面或完整错误信息**能大幅加快排查。
 
+## 目录
+
+- [快速开始](#快速开始)
+  - [前提：Node.js](#前提nodejs)
+  - [四个入口怎么选](#四个入口怎么选)
+  - [方式一：图形界面 `GUI.bat`](#方式一图形界面-guibat)
+  - [方式二：拖放 `转换.bat`](#方式二拖放-转换bat)
+  - [方式三：命令行 `命令行.bat`](#方式三命令行-命令行bat)
+  - [方式四：网页应用 `OsuToMalody.html`（备用）](#方式四网页应用-osutomalodyhtml备用)
+- [支持的转换](#支持的转换)
+- [常见问题速查](#常见问题速查)
+- [已验证](#已验证)
+- [已知限制](#已知限制)
+- [详细文档](#详细文档)
+- [文件说明](#文件说明)
+- [致谢](#致谢)
+- [许可证](#许可证)
+
 ## 快速开始
 
 ### 前提：Node.js
@@ -136,7 +154,6 @@ U 盘、别的电脑、发给别人用。完全离线，不上传任何文件。
 英文版：[entries](docs/entries.md) · [faq](docs/faq.md) ·
 [format-spec](docs/format-spec.md) · [compatibility](docs/compatibility.md) ·
 [testing](docs/testing.md)
-| [`docs/testing.md`](docs/testing.md) | 验证数据与复现命令 |
 
 ## 文件说明
 
@@ -160,6 +177,9 @@ U 盘、别的电脑、发给别人用。完全离线，不上传任何文件。
 `Copyright © 心のsky Group`）与 **rconv**（[prefixaut/rconv](https://github.com/prefixaut/rconv)）。
 
 转换逻辑（`core.mjs`）为**独立实现，未直接复制任何一方的代码**。
+
+此外，**@Hanemi** 提供了部分 Malody 谱面样本并完成 Malody 端测试，
+**@EbonyVeil** 完成了 HTML 端测试，谨此致谢。
 
 > ⚠️ rmstZ 仓库未附带 LICENSE，本项目**不转载、不分发**其文件，需要请前往
 > [官方页面](https://lrfasd.github.io/rmstZ/) 获取。
