@@ -1,9 +1,0 @@
-﻿import re
-p='core.mjs'
-s=open(p,encoding='utf-8').read()
-old='  // ---- 若存在早于首个 BPM 点的音符，整体平移「整数个小节」 ----\n  // osu! 对首个红线之前的区间沿用同一 BPM，而 Malody 的小节索引不应为负\n  // （[-1,0,0] 是 Malody 的 EmptyBeat 哨兵）。平移整小节可保持小节线对齐。\n  // 注意：先量化再判断——极小的负拍会被 1/288 量化直接吸附到 0，无需平移。\n  const firstMeter = tempo.reds[0].meter > 0 ? tempo.reds[0].meter : 4;\n  const isNeg = (b) => toBeatArray(b, denom)[0] < 0;\n  let needShift = false;\n  for (const r of raw) {\n    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) {\n      needShift = true;\n      break;\n    }\n  }\n  let minBeat = 0;\n  if (needShift) {\n    for (const r of raw) {\n      if (r.b < minBeat) minBeat = r.b;\n      if (r.eb != null && r.eb < minBeat) minBeat = r.eb;\n    }\n  }\n  const shift = needShift ? Math.ceil(-minBeat / firstMeter) * firstMeter : 0;\n'
-print('found:', old in s)
-new='  // ---- 若存在早于首个 BPM 点的音符或绿线，整体平移「整数个小节」----\n  // osu! 对首个红线之前的区间沿用同一 BPM，而 Malody 的小节索引不应为负\n  // （[-1,0,0] 是 Malody 的 EmptyBeat 哨兵）。平移整小节可保持小节线对齐。\n  // 注意：先量化再判断——极小的负拍会被 1/288 量化直接吸附到 0，无需平移。\n  const firstMeter = tempo.reds[0].meter > 0 ? tempo.reds[0].meter : 4;\n  const isNeg = (b) => toBeatArray(b, denom)[0] < 0;\n  let needShift = false;\n  for (const r of raw) {\n    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) { needShift = true; break; }\n  }\n  // 绿线（SV）也要计入：绿线在首个红线之前时会落到负小节\n  if (!needShift) {\n    for (const g of greens) {\n      if (isNeg(tempo.toBeat(g.time))) { needShift = true; break; }\n    }\n  }\n  let minBeat = 0;\n  if (needShift) {\n    for (const r of raw) {\n      if (r.b < minBeat) minBeat = r.b;\n      if (r.eb != null && r.eb < minBeat) minBeat = r.eb;\n    }\n    for (const g of greens) {\n      const gb = tempo.toBeat(g.time);\n      if (gb < minBeat) minBeat = gb;\n    }\n  }\n  const shift = needShift ? Math.ceil(-minBeat / firstMeter) * firstMeter : 0;\n'
-s2=s.replace(old,new)
-print('changed:', s!=s2)
-open(p,'w',encoding='utf-8').write(s2)
