@@ -1,14 +1,11 @@
-/**
- * core.mjs — Malody (.mcz / .mc) → osu!mania (.osz / .osu) 转换核心
+﻿/**
+ * core.mjs 鈥?Malody (.mcz / .mc) 鈫?osu!mania (.osz / .osu) 杞崲鏍稿績
  *
- * 零依赖：只用标准 Web API（DecompressionStream / CompressionStream / TextEncoder / DataView），
- * 因此在现代浏览器和 Node.js 18+ 中都能直接运行。
- *
- * 格式依据（对真实谱面逆向 + 与 rmstZ 参考实现交叉验证）：
- *   - beat 三元组 [a,b,c] 表示 a + b/c 拍   （rmstZ: b.fAdd(c.fDiv(d))）
- *   - 键数取 meta.mode_ext.column
- *   - note[] 中 type==1 且无 column 的条目是 BGM 音频事件，其 offset → osu AudioLeadIn
- *   - 长按用 endbeat 表示，输出 osu mania 的 type 128
+ * 闆朵緷璧栵細鍙敤鏍囧噯 Web API锛圖ecompressionStream / CompressionStream / TextEncoder / DataView锛夛紝
+ * 鍥犳鍦ㄧ幇浠ｆ祻瑙堝櫒鍜?Node.js 18+ 涓兘鑳界洿鎺ヨ繍琛屻€? *
+ * 鏍煎紡渚濇嵁锛堝鐪熷疄璋遍潰閫嗗悜 + 涓?rmstZ 鍙傝€冨疄鐜颁氦鍙夐獙璇侊級锛? *   - beat 涓夊厓缁?[a,b,c] 琛ㄧず a + b/c 鎷?  锛坮mstZ: b.fAdd(c.fDiv(d))锛? *   - 閿暟鍙?meta.mode_ext.column
+ *   - note[] 涓?type==1 涓旀棤 column 鐨勬潯鐩槸 BGM 闊抽浜嬩欢锛屽叾 offset 鈫?osu AudioLeadIn
+ *   - 闀挎寜鐢?endbeat 琛ㄧず锛岃緭鍑?osu mania 鐨?type 128
  */
 
 /* ------------------------------------------------------------------ *
@@ -31,11 +28,10 @@ export function crc32(u8) {
 }
 
 /* ------------------------------------------------------------------ *
- * deflate / inflate（走浏览器与 Node 都有的原生压缩流）
- * ------------------------------------------------------------------ */
+ * deflate / inflate锛堣蛋娴忚鍣ㄤ笌 Node 閮芥湁鐨勫師鐢熷帇缂╂祦锛? * ------------------------------------------------------------------ */
 export async function inflateRaw(u8) {
   if (typeof DecompressionStream !== 'function') {
-    throw new Error('当前环境不支持 DecompressionStream，请使用较新的 Chrome / Edge / Firefox');
+    throw new Error('褰撳墠鐜涓嶆敮鎸?DecompressionStream锛岃浣跨敤杈冩柊鐨?Chrome / Edge / Firefox');
   }
   const stream = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -48,21 +44,19 @@ export async function deflateRaw(u8) {
 }
 
 /* ------------------------------------------------------------------ *
- * 极简 ZIP 读写
+ * 鏋佺畝 ZIP 璇诲啓
  * ------------------------------------------------------------------ */
 const SIG_EOCD = 0x06054b50;
 const SIG_CENTRAL = 0x02014b50;
 const SIG_LOCAL = 0x04034b50;
 
 /**
- * 解压安全上限。真实谱面包（谱面 JSON + 音频 + 背景，通常几 MB）离这些数量级差得很远，
- * 设限只为防住恶意构造的「解压炸弹」——几十 KB 的条目解压后膨胀到几个 GB，把内存吃光。
- * 这是可覆盖的配置对象，程序化调用方若确有大包需求可自行调高。
- * （条目数不必设限：EOCD 里的 count 是 uint16，最多 65535，本身撑不出内存问题。）
+ * 瑙ｅ帇瀹夊叏涓婇檺銆傜湡瀹炶氨闈㈠寘锛堣氨闈?JSON + 闊抽 + 鑳屾櫙锛岄€氬父鍑?MB锛夌杩欎簺鏁伴噺绾у樊寰楀緢杩滐紝
+ * 璁鹃檺鍙负闃蹭綇鎭舵剰鏋勯€犵殑銆岃В鍘嬬偢寮广€嶁€斺€斿嚑鍗?KB 鐨勬潯鐩В鍘嬪悗鑶ㄨ儉鍒板嚑涓?GB锛屾妸鍐呭瓨鍚冨厜銆? * 杩欐槸鍙鐩栫殑閰嶇疆瀵硅薄锛岀▼搴忓寲璋冪敤鏂硅嫢纭湁澶у寘闇€姹傚彲鑷璋冮珮銆? * 锛堟潯鐩暟涓嶅繀璁鹃檺锛欵OCD 閲岀殑 count 鏄?uint16锛屾渶澶?65535锛屾湰韬拺涓嶅嚭鍐呭瓨闂銆傦級
  */
 export const READ_LIMITS = {
-  maxEntryBytes: 512 * 1024 * 1024, // 单条目解压后 ≤ 512 MB
-  maxTotalBytes: 4 * 1024 * 1024 * 1024, // 整包解压后合计 ≤ 4 GB
+  maxEntryBytes: 512 * 1024 * 1024, // 鍗曟潯鐩В鍘嬪悗 鈮?512 MB
+  maxTotalBytes: 4 * 1024 * 1024 * 1024, // 鏁村寘瑙ｅ帇鍚庡悎璁?鈮?4 GB
 };
 
 function fmtBytes(n) {
@@ -79,12 +73,12 @@ function findEOCD(u8, dv) {
   return -1;
 }
 
-/** 读取 ZIP，返回 Map<文件名, {name, data:Uint8Array, dir:boolean}> */
+/** 璇诲彇 ZIP锛岃繑鍥?Map<鏂囦欢鍚? {name, data:Uint8Array, dir:boolean}> */
 export async function readZip(input) {
   const u8 = input instanceof Uint8Array ? input : new Uint8Array(input);
   const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
   const eocd = findEOCD(u8, dv);
-  if (eocd < 0) throw new Error('不是有效的 ZIP/MCZ 文件（找不到中央目录结尾标记）');
+  if (eocd < 0) throw new Error('涓嶆槸鏈夋晥鐨?ZIP/MCZ 鏂囦欢锛堟壘涓嶅埌涓ぎ鐩綍缁撳熬鏍囪锛?);
 
   const count = dv.getUint16(eocd + 10, true);
   const cdOff = dv.getUint32(eocd + 16, true);
@@ -104,33 +98,32 @@ export async function readZip(input) {
     const localOff = dv.getUint32(p + 42, true);
     const name = dec.decode(u8.subarray(p + 46, p + 46 + nameLen));
 
-    // 先用中央目录里声明的大小做一次廉价检查，不必等真解压出来才发现是炸弹
+    // 鍏堢敤涓ぎ鐩綍閲屽０鏄庣殑澶у皬鍋氫竴娆″粔浠锋鏌ワ紝涓嶅繀绛夌湡瑙ｅ帇鍑烘潵鎵嶅彂鐜版槸鐐稿脊
     if (uncompSize > READ_LIMITS.maxEntryBytes || total + uncompSize > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，声明 ${fmtBytes(uncompSize)}），已拒绝处理以防解压炸弹`
+        `ZIP 鏉＄洰瑙ｅ帇鍚庤繃澶э紙${name}锛屽０鏄?${fmtBytes(uncompSize)}锛夛紝宸叉嫆缁濆鐞嗕互闃茶В鍘嬬偢寮筦
       );
     }
 
     if (dv.getUint32(localOff, true) !== SIG_LOCAL) {
-      throw new Error('ZIP 结构损坏：本地文件头签名不正确 (' + name + ')');
+      throw new Error('ZIP 缁撴瀯鎹熷潖锛氭湰鍦版枃浠跺ご绛惧悕涓嶆纭?(' + name + ')');
     }
     const lNameLen = dv.getUint16(localOff + 26, true);
     const lExtraLen = dv.getUint16(localOff + 28, true);
     const dataStart = localOff + 30 + lNameLen + lExtraLen;
     if (dataStart + compSize > u8.length) {
-      throw new Error('ZIP 结构损坏：条目数据超出文件范围 (' + name + ')');
+      throw new Error('ZIP 缁撴瀯鎹熷潖锛氭潯鐩暟鎹秴鍑烘枃浠惰寖鍥?(' + name + ')');
     }
     const raw = u8.subarray(dataStart, dataStart + compSize);
 
     let data;
     if (method === 0) data = raw.slice();
     else if (method === 8) data = await inflateRaw(raw);
-    else throw new Error('不支持的 ZIP 压缩方式 ' + method + '（' + name + '）');
+    else throw new Error('涓嶆敮鎸佺殑 ZIP 鍘嬬缉鏂瑰紡 ' + method + '锛? + name + '锛?);
 
-    // 声明的大小可能是假的，解压后再按真实长度核一次
-    if (data.length > READ_LIMITS.maxEntryBytes || total + data.length > READ_LIMITS.maxTotalBytes) {
+    // 澹版槑鐨勫ぇ灏忓彲鑳芥槸鍋囩殑锛岃В鍘嬪悗鍐嶆寜鐪熷疄闀垮害鏍镐竴娆?    if (data.length > READ_LIMITS.maxEntryBytes || total + data.length > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，实际 ${fmtBytes(data.length)}），已拒绝处理以防解压炸弹`
+        `ZIP 鏉＄洰瑙ｅ帇鍚庤繃澶э紙${name}锛屽疄闄?${fmtBytes(data.length)}锛夛紝宸叉嫆缁濆鐞嗕互闃茶В鍘嬬偢寮筦
       );
     }
     total += data.length;
@@ -138,11 +131,11 @@ export async function readZip(input) {
     files.set(name, { name, method, data, dir: name.endsWith('/') });
     p += 46 + nameLen + extraLen + commentLen;
   }
-  if (files.size === 0) throw new Error('ZIP 中没有可用条目');
+  if (files.size === 0) throw new Error('ZIP 涓病鏈夊彲鐢ㄦ潯鐩?);
   return files;
 }
 
-/** 写出 ZIP。compress=false 时全部使用 stored（无压缩），兼容性最好 */
+/** 鍐欏嚭 ZIP銆俢ompress=false 鏃跺叏閮ㄤ娇鐢?stored锛堟棤鍘嬬缉锛夛紝鍏煎鎬ф渶濂?*/
 export async function writeZip(entries, opts = {}) {
   const compress = opts.compress !== false;
   const enc = new TextEncoder();
@@ -169,8 +162,7 @@ export async function writeZip(entries, opts = {}) {
     const ldv = new DataView(lh.buffer);
     ldv.setUint32(0, SIG_LOCAL, true);
     ldv.setUint16(4, 20, true);
-    ldv.setUint16(6, 0x0800, true); // UTF-8 文件名
-    ldv.setUint16(8, method, true);
+    ldv.setUint16(6, 0x0800, true); // UTF-8 鏂囦欢鍚?    ldv.setUint16(8, method, true);
     ldv.setUint16(10, 0, true);
     ldv.setUint16(12, 0x21, true); // 1980-01-01
     ldv.setUint32(14, crc, true);
@@ -227,9 +219,8 @@ export async function writeZip(entries, opts = {}) {
 }
 
 /* ------------------------------------------------------------------ *
- * 时间轴
- * ------------------------------------------------------------------ */
-/** [a,b,c] → a + b/c 拍 */
+ * 鏃堕棿杞? * ------------------------------------------------------------------ */
+/** [a,b,c] 鈫?a + b/c 鎷?*/
 export function parseBeat(a) {
   if (!Array.isArray(a) || a.length !== 3) return null;
   const b = Number(a[0]);
@@ -245,7 +236,7 @@ export class TempoMap {
     for (const t of timeList || []) {
       const b = parseBeat(t && t.beat);
       const bpm = Number(t && t.bpm);
-      if (b === null || !isFinite(bpm) || bpm <= 0) continue; // 非正 BPM 是变速(SV)，不是真实 BPM
+      if (b === null || !isFinite(bpm) || bpm <= 0) continue; // 闈炴 BPM 鏄彉閫?SV)锛屼笉鏄湡瀹?BPM
       const meter = Number(t.signature) > 0 ? Math.round(Number(t.signature)) : 4;
       pts.push([b, bpm, meter]);
     }
@@ -277,7 +268,7 @@ export class TempoMap {
     return this.msAt[p.length - 1] + ((beat - last[0]) * 60000) / last[1];
   }
 
-  /** 该拍点生效的 BPM（用于生成 osu 的 timing point） */
+  /** 璇ユ媿鐐圭敓鏁堢殑 BPM锛堢敤浜庣敓鎴?osu 鐨?timing point锛?*/
   bpmAt(beat) {
     const p = this.points;
     let bpm = p[0][1];
@@ -293,7 +284,7 @@ export class TempoMap {
 }
 
 /* ------------------------------------------------------------------ *
- * .mc → .osu
+ * .mc 鈫?.osu
  * ------------------------------------------------------------------ */
 function fmtNum(v, nd = 12) {
   let s = v.toFixed(nd);
@@ -307,8 +298,8 @@ function safeFileName(s, fallback = 'unknown') {
 }
 
 /**
- * 把单个 .mc 转成 osu!mania 谱面文本
- * @param {object} mc       解析后的 .mc JSON
+ * 鎶婂崟涓?.mc 杞垚 osu!mania 璋遍潰鏂囨湰
+ * @param {object} mc       瑙ｆ瀽鍚庣殑 .mc JSON
  * @param {object} ctx      { keyOverride, audioName, backgroundName, shiftMs }
  */
 export function convertMcToOsu(mc, ctx = {}) {
@@ -331,7 +322,7 @@ export function convertMcToOsu(mc, ctx = {}) {
   const tempo = new TempoMap(mc.time);
   const rawNotes = Array.isArray(mc.note) ? mc.note : [];
 
-  // note[] 里 type==1 且没有 column 的条目是音频/BGM 事件
+  // note[] 閲?type==1 涓旀病鏈?column 鐨勬潯鐩槸闊抽/BGM 浜嬩欢
   const audioName = ctx.audioName || '';
   let audioLeadIn = 0;
   for (const n of rawNotes) {
@@ -343,11 +334,8 @@ export function convertMcToOsu(mc, ctx = {}) {
     }
   }
 
-  // Malody 的 BGM offset 语义是「延迟多久开始播放音频」，即
-  //     音频位置 = 谱面时间 − offset
-  // osu! 的物件时间就是音频位置，因此这里整体前移 offset。
-  // （AudioLeadIn 同时保留该值，保证往返转换可还原）
-  const timeShift = (ctx.noSync ? 0 : -audioLeadIn) + shift;
+  // Malody 鐨?BGM offset 璇箟鏄€屽欢杩熷涔呭紑濮嬫挱鏀鹃煶棰戙€嶏紝鍗?  //     闊抽浣嶇疆 = 璋遍潰鏃堕棿 鈭?offset
+  // osu! 鐨勭墿浠舵椂闂村氨鏄煶棰戜綅缃紝鍥犳杩欓噷鏁翠綋鍓嶇Щ offset銆?  // 锛圓udioLeadIn 鍚屾椂淇濈暀璇ュ€硷紝淇濊瘉寰€杩旇浆鎹㈠彲杩樺師锛?  const timeShift = (ctx.noSync ? 0 : -audioLeadIn) + shift;
 
   const notes = [];
   let skipped = 0;
@@ -363,8 +351,7 @@ export function convertMcToOsu(mc, ctx = {}) {
 
     const type = parseInt(n.type, 10);
     const hasColumn = n.column !== undefined;
-    // 有 column 的都是音符（含 BGM 触发事件，带 sound），否则 BGM 事件已单独处理
-    if (!hasColumn && type === 1) continue;
+    // 鏈?column 鐨勯兘鏄煶绗︼紙鍚?BGM 瑙﹀彂浜嬩欢锛屽甫 sound锛夛紝鍚﹀垯 BGM 浜嬩欢宸插崟鐙鐞?    if (!hasColumn && type === 1) continue;
 
     const column = parseInt(n.column, 10);
     if (!isFinite(column) || column < 0 || column >= key) {
@@ -378,7 +365,7 @@ export function convertMcToOsu(mc, ctx = {}) {
 
     const endBeat = parseBeat(n.endbeat);
     const hit = { x: xC, t, type: 1, end: 0 };
-    if (n.sound) hit.sound = n.sound; // 普通音符的自定义 sample → osu HitObject extras
+    if (n.sound) hit.sound = n.sound; // 鏅€氶煶绗︾殑鑷畾涔?sample 鈫?osu HitObject extras
     if (endBeat !== null && endBeat > beat) {
       const tEnd = Math.round(tempo.toMs(endBeat) + timeShift);
       hit.type = 128;
@@ -388,12 +375,12 @@ export function convertMcToOsu(mc, ctx = {}) {
   }
 
   if (skipped > 0) {
-    warnings.push(`跳过 ${skipped} 个无法解析的音符（beat 字段缺失或列号越界）`);
+    warnings.push(`璺宠繃 ${skipped} 涓棤娉曡В鏋愮殑闊崇锛坆eat 瀛楁缂哄け鎴栧垪鍙疯秺鐣岋級`);
   }
 
   notes.sort((a, b) => (a.t - b.t) || (a.x - b.x));
 
-  // ---- 组装 .osu ----
+  // ---- 缁勮 .osu ----
   const L = [];
   L.push('osu file format v14');
   L.push('');
@@ -449,7 +436,7 @@ export function convertMcToOsu(mc, ctx = {}) {
   L.push('//Storyboard Sound Samples');
   L.push('');
   L.push('[TimingPoints]');
-  // 红线（BPM 点）+ 绿线（SV 点）合并为一条时间轴输出
+  // 绾㈢嚎锛圔PM 鐐癸級+ 缁跨嚎锛圫V 鐐癸級鍚堝苟涓轰竴鏉℃椂闂磋酱杈撳嚭
   const tps = [];
   for (const [b, bpm, meter] of tempo.points) {
     const t = Math.round(tempo.toMs(b) + timeShift);
@@ -459,25 +446,25 @@ export function convertMcToOsu(mc, ctx = {}) {
   for (const e of mc.effect || []) {
     if (e.scroll == null || typeof e.scroll !== 'number') continue;
     const s = e.scroll;
-    if (!isFinite(s) || s <= 0) continue; // 只处理正卷速；负值对应非标准效果
+    if (!isFinite(s) || s <= 0) continue; // 鍙鐞嗘鍗烽€燂紱璐熷€煎搴旈潪鏍囧噯鏁堟灉
     const b = parseBeat(e.beat);
     if (b === null) continue;
     const t = Math.round(tempo.toMs(b) + timeShift);
-    // 卷速 → 绿线 beatLength：scroll = -100 / beatLength
+    // 鍗烽€?鈫?缁跨嚎 beatLength锛歴croll = -100 / beatLength
     const beatLength = Math.round(-100.0 / s * 1000) / 1000;
     tps.push({ time: t, beatLength, meter: 4, uninherited: false });
   }
   tps.sort((a, b) => a.time - b.time);
   for (const tp of tps) {
-    // 格式：time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
+    // 鏍煎紡锛歵ime,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
     const fields = [tp.time, fmtNum(tp.beatLength), tp.meter, 2, 0, 100, tp.uninherited ? 1 : 0, 0];
     L.push(fields.join(','));
   }
   L.push('');
   L.push('[HitObjects]');
   for (const n of notes) {
-    // hitSample 格式：normalSet:additionSet:index:volume:filename
-    // 无自定义音效时保持与传统输出完全一致（0:0:0:0:，文件名位为空）
+    // hitSample 鏍煎紡锛歯ormalSet:additionSet:index:volume:filename
+    // 鏃犺嚜瀹氫箟闊虫晥鏃朵繚鎸佷笌浼犵粺杈撳嚭瀹屽叏涓€鑷达紙0:0:0:0:锛屾枃浠跺悕浣嶄负绌猴級
     const sampleTail = n.sound ? `0:0:0:70:${n.sound}` : '0:0:0:0:';
     if (n.type === 128) L.push(`${n.x},192,${n.t},128,0,${n.end}:${sampleTail}`);
     else L.push(`${n.x},192,${n.t},1,0,${sampleTail}`);
@@ -511,15 +498,15 @@ export function convertMcToOsu(mc, ctx = {}) {
 }
 
 /* ------------------------------------------------------------------ *
- * .mcz → .osz
+ * .mcz 鈫?.osz
  * ------------------------------------------------------------------ */
 const AUDIO_EXT = /\.(mp3|ogg|wav|m4a|aac|flac)$/i;
 const IMAGE_EXT = /\.(jpg|jpeg|png|bmp|gif)$/i;
 
-/** 把文件名列表缩成「a, b, c 等 N 个」，用于告警文案 */
+/** 鎶婃枃浠跺悕鍒楄〃缂╂垚銆宎, b, c 绛?N 涓€嶏紝鐢ㄤ簬鍛婅鏂囨 */
 function briefList(list, max = 3) {
   if (list.length <= max) return list.join(', ');
-  return `${list.slice(0, max).join(', ')} 等 ${list.length} 个`;
+  return `${list.slice(0, max).join(', ')} 绛?${list.length} 涓猔;
 }
 
 export async function convertMczToOsz(input, opts = {}) {
@@ -527,7 +514,7 @@ export async function convertMczToOsz(input, opts = {}) {
   const names = [...files.keys()].filter((n) => !files.get(n).dir);
 
   const mcNames = names.filter((n) => /\.mc$/i.test(n));
-  if (!mcNames.length) throw new Error('压缩包里没有找到 .mc 谱面文件');
+  if (!mcNames.length) throw new Error('鍘嬬缉鍖呴噷娌℃湁鎵惧埌 .mc 璋遍潰鏂囦欢');
 
   const audioNames = names.filter((n) => AUDIO_EXT.test(n));
   const imageNames = names.filter((n) => IMAGE_EXT.test(n));
@@ -536,18 +523,16 @@ export async function convertMczToOsz(input, opts = {}) {
   const outEntries = [];
   const report = { charts: [], audio: '', background: '', warnings: [] };
 
-  // 包里混进了 osu! 侧的文件（例如有人把 .osu / .osz 直接塞进 .mcz）：
-  // 它们不是 Malody 谱面，会被静默忽略，这里显式提示，免得用户以为已经转换成功。
-  const foreignOsu = names.filter((n) => /\.(osu|osz)$/i.test(n));
+  // 鍖呴噷娣疯繘浜?osu! 渚х殑鏂囦欢锛堜緥濡傛湁浜烘妸 .osu / .osz 鐩存帴濉炶繘 .mcz锛夛細
+  // 瀹冧滑涓嶆槸 Malody 璋遍潰锛屼細琚潤榛樺拷鐣ワ紝杩欓噷鏄惧紡鎻愮ず锛屽厤寰楃敤鎴蜂互涓哄凡缁忚浆鎹㈡垚鍔熴€?  const foreignOsu = names.filter((n) => /\.(osu|osz)$/i.test(n));
   if (foreignOsu.length) {
     report.warnings.push(
-      `包里有 ${briefList(foreignOsu)}：不是 Malody 谱面（.mcz 只转换 .mc），已跳过。` +
-        `如需转换 osu! 谱面，请把 .osu / .osz 单独作为输入。`
+      `鍖呴噷鏈?${briefList(foreignOsu)}锛氫笉鏄?Malody 璋遍潰锛?mcz 鍙浆鎹?.mc锛夛紝宸茶烦杩囥€俙 +
+        `濡傞渶杞崲 osu! 璋遍潰锛岃鎶?.osu / .osz 鍗曠嫭浣滀负杈撳叆銆俙
     );
   }
 
-  // 先定出音频与背景（多难度共用）
-  let audioName = opts.audioName || audioNames[0] || '';
+  // 鍏堝畾鍑洪煶棰戜笌鑳屾櫙锛堝闅惧害鍏辩敤锛?  let audioName = opts.audioName || audioNames[0] || '';
   let bgName = opts.backgroundName || '';
 
   const chartResults = [];
@@ -556,12 +541,12 @@ export async function convertMczToOsz(input, opts = {}) {
     try {
       mc = JSON.parse(dec.decode(files.get(mcName).data));
     } catch (e) {
-      report.warnings.push(`${mcName}: JSON 解析失败（${e.message}）`);
+      report.warnings.push(`${mcName}: JSON 瑙ｆ瀽澶辫触锛?{e.message}锛塦);
       continue;
     }
 
     const meta = mc.meta || {};
-    // BGM 事件里的 sound 字段是最权威的音频名
+    // BGM 浜嬩欢閲岀殑 sound 瀛楁鏄渶鏉冨▉鐨勯煶棰戝悕
     if (!opts.audioName && Array.isArray(mc.note)) {
       for (const n of mc.note) {
         if (n && parseInt(n.type, 10) === 1 && n.sound) {
@@ -574,7 +559,7 @@ export async function convertMczToOsz(input, opts = {}) {
 
     const mode = Number(meta.mode);
     if (isFinite(mode) && ![0, 1, 2, 6].includes(mode)) {
-      report.warnings.push(`${mcName}: Malody mode=${mode} 不是键模式，列映射可能不正确`);
+      report.warnings.push(`${mcName}: Malody mode=${mode} 涓嶆槸閿ā寮忥紝鍒楁槧灏勫彲鑳戒笉姝ｇ‘`);
     }
 
     const res = convertMcToOsu(mc, {
@@ -592,7 +577,7 @@ export async function convertMczToOsz(input, opts = {}) {
     chartResults.push({ osuFileName, text: res.text, stats: s, sourceMc: mcName });
   }
 
-  if (!chartResults.length) throw new Error('所有 .mc 都解析失败，没有生成任何谱面');
+  if (!chartResults.length) throw new Error('鎵€鏈?.mc 閮借В鏋愬け璐ワ紝娌℃湁鐢熸垚浠讳綍璋遍潰');
 
   const enc = new TextEncoder();
   for (const c of chartResults) {
@@ -600,7 +585,7 @@ export async function convertMczToOsz(input, opts = {}) {
     report.charts.push({ file: c.osuFileName, from: c.sourceMc, ...c.stats });
   }
 
-  // 资源原样搬运
+  // 璧勬簮鍘熸牱鎼繍
   const packIn = (logicalName) => {
     if (!logicalName) return false;
     const short = logicalName.split(/[\\/]/).pop();
@@ -613,50 +598,31 @@ export async function convertMczToOsz(input, opts = {}) {
     return false;
   };
 
-  // 收集所有被引用的音频/背景（多难度可能各自不同）
-  const audioBases = new Set();
-  const bgBases = new Set();
-  for (const mcName of mcNames) {
-    let mc;
-    try { mc = JSON.parse(dec.decode(files.get(mcName).data)); } catch { continue; }
-    const meta = mc.meta || {};
-    for (const n of mc.note || []) {
-      if (n && parseInt(n.type, 10) === 1 && n.sound) audioBases.add(String(n.sound).split(/[\\/]/).pop());
-    }
-    if (meta.background) bgBases.add(String(meta.background).split(/[\\/]/).pop());
-  }
+  const audioBase = audioName ? audioName.split(/[\\/]/).pop() : '';
+  const bgBase = bgName ? bgName.split(/[\\/]/).pop() : '';
 
-  for (const a of audioBases) {
-    if (packIn(a)) report.audio = a;
-  }
-  if (!report.audio) report.warnings.push('没有打包进音频文件，osu! 里将没有声音');
+  if (audioBase && packIn(audioBase)) report.audio = audioBase;
+  else report.warnings.push('娌℃湁鎵撳寘杩涢煶棰戞枃浠讹紝osu! 閲屽皢娌℃湁澹伴煶');
 
-  for (const b of bgBases) {
-    if (packIn(b)) report.background = b;
-  }
-  if (!report.background && imageNames.length) {
-    report.background = imageNames[0].split(/[\\/]/).pop();
-    packIn(report.background);
-  }
-  if (!report.background) report.warnings.push('没有打包进背景图');
+  if (bgBase && packIn(bgBase)) report.background = bgBase;
+  else if (imageNames.length && packIn(imageNames[0])) report.background = imageNames[0].split(/[\\/]/).pop();
+  else report.warnings.push('娌℃湁鎵撳寘杩涜儗鏅浘');
 
   const osz = await writeZip(outEntries, { compress: opts.compress });
   return { data: osz, report, entries: outEntries };
 }
 
 /* ================================================================== *
- * 反向：osu! (.osu / .osz) → Malody (.mc / .mcz)
+ * 鍙嶅悜锛歰su! (.osu / .osz) 鈫?Malody (.mc / .mcz)
  *
- * 依据：
- *   - rconv 的 Malody 类型定义：Beat = [小节, snap索引, snap大小] 即 a + b/c
- *     SoundCueType: Effect=0 / Song=1 / KeySound=2  → BGM 事件 type=1
+ * 渚濇嵁锛? *   - rconv 鐨?Malody 绫诲瀷瀹氫箟锛欱eat = [灏忚妭, snap绱㈠紩, snap澶у皬] 鍗?a + b/c
+ *     SoundCueType: Effect=0 / Song=1 / KeySound=2  鈫?BGM 浜嬩欢 type=1
  *     ChartMode: Key=0, Catch=3, Pad=4, Taiko=5, Ring=6, Slide=7
- *   - 4 个真实 .mcz 的实测结构（数值分母 288 是最常用的 snap 大小）
- * ================================================================== */
+ *   - 4 涓湡瀹?.mcz 鐨勫疄娴嬬粨鏋勶紙鏁板€煎垎姣?288 鏄渶甯哥敤鐨?snap 澶у皬锛? * ================================================================== */
 
-const OSU_BEAT_DENOM = 288; // 真实 Malody 谱面里出现频率最高的 snap 大小
+const OSU_BEAT_DENOM = 288; // 鐪熷疄 Malody 璋遍潰閲屽嚭鐜伴鐜囨渶楂樼殑 snap 澶у皬
 
-/** 解析 .osu 文本 */
+/** 瑙ｆ瀽 .osu 鏂囨湰 */
 export function parseOsu(text) {
   const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const lines = src.split(/\r?\n/);
@@ -695,7 +661,7 @@ export function parseOsu(text) {
     const meter = f.length > 2 ? parseInt(f[2], 10) || 4 : 4;
     let uninherited;
     if (f.length > 6 && f[6].trim() !== '') uninherited = parseInt(f[6], 10) === 1;
-    else uninherited = beatLength > 0; // 旧格式没有该字段：正 beatLength = 红线
+    else uninherited = beatLength > 0; // 鏃ф牸寮忔病鏈夎瀛楁锛氭 beatLength = 绾㈢嚎
     timingPoints.push({ time, beatLength, meter, uninherited });
   }
 
@@ -706,8 +672,7 @@ export function parseOsu(text) {
     const f = s.split(',');
     if (f.length < 5) continue;
     const x = parseFloat(f[0]);
-    const y = parseFloat(f[1]); // y 坐标（manía 里通常不用）
-    const time = parseFloat(f[2]);
+    const y = parseFloat(f[1]); // y 鍧愭爣锛坢an铆a 閲岄€氬父涓嶇敤锛?    const time = parseFloat(f[2]);
     const type = parseInt(f[3], 10);
     if (!isFinite(x) || !isFinite(y) || !isFinite(time) || !isFinite(type)) continue;
     let endTime = null;
@@ -716,8 +681,7 @@ export function parseOsu(text) {
       const et = parseFloat(String(f[5] || '').split(':')[0]);
       if (isFinite(et)) endTime = et;
     }
-    // 提取自定义 sample 文件名（格式：...:volume:filename.wav，可能带尾随冒号）
-    if (f.length > 5) {
+    // 鎻愬彇鑷畾涔?sample 鏂囦欢鍚嶏紙鏍煎紡锛?..:volume:filename.wav锛屽彲鑳藉甫灏鹃殢鍐掑彿锛?    if (f.length > 5) {
       const rest = f.slice(5).join(',');
       const m = /([^:,]+\.(?:wav|ogg|mp3))/gi.exec(rest);
       if (m) customSample = m[0];
@@ -725,7 +689,7 @@ export function parseOsu(text) {
     hitObjects.push({ x, y, time, type, endTime, customSample });
   }
 
-  // 背景图：Events 里形如 0,0,"file.jpg",0,0
+  // 鑳屾櫙鍥撅細Events 閲屽舰濡?0,0,"file.jpg",0,0
   let background = '';
   for (const l of sections['[Events]'] || []) {
     const mm = /^\s*0\s*,\s*0\s*,\s*"([^"]+)"/.exec(l);
@@ -745,19 +709,16 @@ export function parseOsu(text) {
   };
 }
 
-/** 把 osu 的毫秒时间轴换算成「拍」 */
+/** 鎶?osu 鐨勬绉掓椂闂磋酱鎹㈢畻鎴愩€屾媿銆?*/
 export class OsuTempoMap {
   constructor(timingPoints) {
     const byTime = new Map();
     for (const tp of timingPoints || []) {
-      if (!tp.uninherited || !(tp.beatLength > 0)) continue; // 只取红线
+      if (!tp.uninherited || !(tp.beatLength > 0)) continue; // 鍙彇绾㈢嚎
       if (!isFinite(tp.beatLength) || tp.beatLength < 0.5 || tp.beatLength > 120000) continue;
-      // 过滤异常红线：mania SV 谱会把绿线控制点误写进 TimingPoints，产生
-      // beatLength 极小（<0.5ms）或极大（>120000ms，甚至 1e15）的伪红线
-      byTime.set(tp.time, tp); // 同一时间取最后一条
-    }
+      // 杩囨护寮傚父绾㈢嚎锛歮ania SV 璋变細鎶婄豢绾挎帶鍒剁偣璇啓杩?TimingPoints锛屼骇鐢?      // beatLength 鏋佸皬锛?0.5ms锛夋垨鏋佸ぇ锛?120000ms锛岀敋鑷?1e15锛夌殑浼孩绾?      byTime.set(tp.time, tp); // 鍚屼竴鏃堕棿鍙栨渶鍚庝竴鏉?    }
     const reds = [...byTime.values()].sort((a, b) => a.time - b.time);
-    if (!reds.length) reds.push({ time: 0, beatLength: 500, meter: 4 }); // 兜底 120BPM
+    if (!reds.length) reds.push({ time: 0, beatLength: 500, meter: 4 }); // 鍏滃簳 120BPM
     this.reds = reds;
     this.beatAt = [0];
     for (let i = 1; i < reds.length; i++) {
@@ -767,7 +728,7 @@ export class OsuTempoMap {
     }
   }
 
-  /** 毫秒 → 拍（第一个红线所在时刻定义为第 0 拍） */
+  /** 姣 鈫?鎷嶏紙绗竴涓孩绾挎墍鍦ㄦ椂鍒诲畾涔変负绗?0 鎷嶏級 */
   toBeat(ms) {
     const r = this.reds;
     if (ms <= r[0].time) return (ms - r[0].time) / r[0].beatLength;
@@ -781,7 +742,7 @@ export class OsuTempoMap {
   }
 }
 
-/** 拍 → Malody 的 [a,b,c]（分母 denom，再按 2、3 约分） */
+/** 鎷?鈫?Malody 鐨?[a,b,c]锛堝垎姣?denom锛屽啀鎸?2銆? 绾﹀垎锛?*/
 export function toBeatArray(beat, denom = OSU_BEAT_DENOM) {
   let a = Math.floor(beat);
   let n = Math.round((beat - a) * denom);
@@ -808,9 +769,8 @@ function round6(v) {
 }
 
 /**
- * 单个 .osu → .mc 对象
- * @param {object} osu  parseOsu 的结果
- * @param {object} ctx  { audioName, backgroundName, denom, nowSeconds, keyOverride }
+ * 鍗曚釜 .osu 鈫?.mc 瀵硅薄
+ * @param {object} osu  parseOsu 鐨勭粨鏋? * @param {object} ctx  { audioName, backgroundName, denom, nowSeconds, keyOverride }
  */
 export function osuToMc(osu, ctx = {}) {
   const g = osu.general;
@@ -820,8 +780,8 @@ export function osuToMc(osu, ctx = {}) {
   const mode = parseInt(g['Mode'] || '0', 10);
   if (mode !== 3) {
     throw new Error(
-      '只支持 osu!mania 谱面（需要 Mode: 3），当前是 Mode: ' + mode +
-      (mode === 0 ? '（osu!standard）' : '')
+      '鍙敮鎸?osu!mania 璋遍潰锛堥渶瑕?Mode: 3锛夛紝褰撳墠鏄?Mode: ' + mode +
+      (mode === 0 ? '锛坥su!standard锛? : '')
     );
   }
 
@@ -832,10 +792,8 @@ export function osuToMc(osu, ctx = {}) {
   const denom = Number(ctx.denom) || OSU_BEAT_DENOM;
   const tempo = new OsuTempoMap(osu.timingPoints);
 
-  // ---- 绿线 (SV) 收集：继承型（uninherited 为 false）且 beatLength < 0 的点控制卷速 ----
-  // osu!mania 绿线的 beatLength 为负，卷速倍率 = -100 / beatLength（-100 → 1.0，-400 → 0.25）
-  // 与 Malody effect[].scroll 的语义一致（1.0 为正常速度，负值/超大幅度属非标准效果）。
-  const greens = [];
+  // ---- 缁跨嚎 (SV) 鏀堕泦锛氱户鎵垮瀷锛坲ninherited 涓?false锛変笖 beatLength < 0 鐨勭偣鎺у埗鍗烽€?----
+  // osu!mania 缁跨嚎鐨?beatLength 涓鸿礋锛屽嵎閫熷€嶇巼 = -100 / beatLength锛?100 鈫?1.0锛?400 鈫?0.25锛?  // 涓?Malody effect[].scroll 鐨勮涔変竴鑷达紙1.0 涓烘甯搁€熷害锛岃礋鍊?瓒呭ぇ骞呭害灞為潪鏍囧噯鏁堟灉锛夈€?  const greens = [];
   for (const tp of osu.timingPoints || []) {
     if (tp.uninherited === false && tp.beatLength < 0 && isFinite(tp.beatLength)) {
       const scroll = -100.0 / tp.beatLength;
@@ -846,7 +804,7 @@ export function osuToMc(osu, ctx = {}) {
   }
   greens.sort((a, b) => a.time - b.time);
 
-  // ---- 收集音符的原始拍值（先不量化）----
+  // ---- 鏀堕泦闊崇鐨勫師濮嬫媿鍊硷紙鍏堜笉閲忓寲锛?---
   const raw = [];
   for (const o of osu.hitObjects) {
     let col = Math.floor((o.x * key) / 512);
@@ -858,20 +816,14 @@ export function osuToMc(osu, ctx = {}) {
   }
   raw.sort((a, b) => a.ms - b.ms || a.col - b.col);
 
-  // ---- 若存在早于首个 BPM 点的音符或绿线，整体平移「整数个小节」----
-  // osu! 对首个红线之前的区间沿用同一 BPM，而 Malody 的小节索引不应为负
-  // （[-1,0,0] 是 Malody 的 EmptyBeat 哨兵）。平移整小节可保持小节线对齐。
-  // 注意：先量化再判断——极小的负拍会被 1/288 量化直接吸附到 0，无需平移。
-  const firstMeter = tempo.reds[0].meter > 0 ? tempo.reds[0].meter : 4;
+  // ---- 鑻ュ瓨鍦ㄦ棭浜庨涓?BPM 鐐圭殑闊崇锛屾暣浣撳钩绉汇€屾暣鏁颁釜灏忚妭銆?----
+  // osu! 瀵归涓孩绾夸箣鍓嶇殑鍖洪棿娌跨敤鍚屼竴 BPM锛岃€?Malody 鐨勫皬鑺傜储寮曚笉搴斾负璐?  // 锛圼-1,0,0] 鏄?Malody 鐨?EmptyBeat 鍝ㄥ叺锛夈€傚钩绉绘暣灏忚妭鍙繚鎸佸皬鑺傜嚎瀵归綈銆?  // 娉ㄦ剰锛氬厛閲忓寲鍐嶅垽鏂€斺€旀瀬灏忕殑璐熸媿浼氳 1/288 閲忓寲鐩存帴鍚搁檮鍒?0锛屾棤闇€骞崇Щ銆?  const firstMeter = tempo.reds[0].meter > 0 ? tempo.reds[0].meter : 4;
   const isNeg = (b) => toBeatArray(b, denom)[0] < 0;
   let needShift = false;
   for (const r of raw) {
-    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) { needShift = true; break; }
-  }
-  // 绿线（SV）也要计入：绿线在首个红线之前时会落到负小节
-  if (!needShift) {
-    for (const g of greens) {
-      if (isNeg(tempo.toBeat(g.time))) { needShift = true; break; }
+    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) {
+      needShift = true;
+      break;
     }
   }
   let minBeat = 0;
@@ -880,14 +832,10 @@ export function osuToMc(osu, ctx = {}) {
       if (r.b < minBeat) minBeat = r.b;
       if (r.eb != null && r.eb < minBeat) minBeat = r.eb;
     }
-    for (const g of greens) {
-      const gb = tempo.toBeat(g.time);
-      if (gb < minBeat) minBeat = gb;
-    }
   }
   const shift = needShift ? Math.ceil(-minBeat / firstMeter) * firstMeter : 0;
 
-  // ---- time: BPM 变速点 ----
+  // ---- time: BPM 鍙橀€熺偣 ----
   const timeArr = [];
   if (shift > 0) {
     timeArr.push({ beat: toBeatArray(0, denom), bpm: round6(60000 / tempo.reds[0].beatLength) });
@@ -899,14 +847,13 @@ export function osuToMc(osu, ctx = {}) {
     });
   }
 
-  // ---- note: 音符与长按（含自定义 sample → Malody note.sound）----
+  // ---- note: 闊崇涓庨暱鎸夛紙鍚嚜瀹氫箟 sample 鈫?Malody note.sound锛?---
   const notes = raw.map((r) => {
     const beat = toBeatArray(r.b + shift, denom);
     if (r.eb != null) return { beat, endbeat: toBeatArray(r.eb + shift, denom), column: r.col };
     return { beat, column: r.col };
   });
-  // 把 osu 自定义 sample 映射到 Malody note.sound（仅对非 BGM 音符）
-  for (let i = 0; i < notes.length && i < raw.length; i++) {
+  // 鎶?osu 鑷畾涔?sample 鏄犲皠鍒?Malody note.sound锛堜粎瀵归潪 BGM 闊崇锛?  for (let i = 0; i < notes.length && i < raw.length; i++) {
     if (raw[i].customSample) notes[i].sound = raw[i].customSample;
   }
   const holdCount = notes.filter((n) => n.endbeat).length;
@@ -918,11 +865,10 @@ export function osuToMc(osu, ctx = {}) {
     for (const s of secs) if (s < minSection) minSection = s;
   }
 
-  // ---- BGM 事件放在 note[] 末尾（真实 .mcz 的做法）----
-  // offset 要让「音频位置 = 谱面时间 − offset」成立：
-  //   谱面时间 = (osu 时间 − T0) + 平移量   →   offset = 平移量 − T0
-  // 其中 T0 是首个红线的 osu 时间（即上面时间轴的第 0 拍）。
-  // 平移 shift 拍对应的毫秒数：beatLength 就是「每拍毫秒数」(= 60000/BPM)
+  // ---- BGM 浜嬩欢鏀惧湪 note[] 鏈熬锛堢湡瀹?.mcz 鐨勫仛娉曪級----
+  // offset 瑕佽銆岄煶棰戜綅缃?= 璋遍潰鏃堕棿 鈭?offset銆嶆垚绔嬶細
+  //   璋遍潰鏃堕棿 = (osu 鏃堕棿 鈭?T0) + 骞崇Щ閲?  鈫?  offset = 骞崇Щ閲?鈭?T0
+  // 鍏朵腑 T0 鏄涓孩绾跨殑 osu 鏃堕棿锛堝嵆涓婇潰鏃堕棿杞寸殑绗?0 鎷嶏級銆?  // 骞崇Щ shift 鎷嶅搴旂殑姣鏁帮細beatLength 灏辨槸銆屾瘡鎷嶆绉掓暟銆?= 60000/BPM)
   const shiftMs = shift * tempo.reds[0].beatLength;
   const bgmOffset = ctx.noSync ? 0 : Math.round(shiftMs - tempo.reds[0].time);
   notes.push({
@@ -938,16 +884,13 @@ export function osuToMc(osu, ctx = {}) {
   const titleOrg = m['TitleUnicode'] || title;
   const artistOrg = m['ArtistUnicode'] || artist;
 
-  // 真实 .mcz 里存在两种格式方言（很可能对应不同 Malody 版本/分支）：
-  //   方言 A（多数文件）：顶层 meta/time/effect/note/extra，meta 有 $ver 与 time，
-  //                       mode_ext={column,bar_begin}，time[]={beat,bpm}，BGM 带 vol
-  //   方言 B（愛属性）：  顶层只有 meta/time/note，meta 无 $ver/time 但有 aimode，
-  //                       song 带 file/bpm，mode_ext 多 speed，time[] 多 delay，BGM 不带 vol
-  // 默认输出方言 A（已被实际导入验证），并额外补上方言 B 的 song.file/song.bpm
-  // —— 这两个键在 song 里，方言 A 的读取器会忽略，但方言 B 的读取器可能靠它定位音频。
-  const style = ctx.mcStyle === 'minimal' ? 'minimal' : 'full';
+  // 鐪熷疄 .mcz 閲屽瓨鍦ㄤ袱绉嶆牸寮忔柟瑷€锛堝緢鍙兘瀵瑰簲涓嶅悓 Malody 鐗堟湰/鍒嗘敮锛夛細
+  //   鏂硅█ A锛堝鏁版枃浠讹級锛氶《灞?meta/time/effect/note/extra锛宮eta 鏈?$ver 涓?time锛?  //                       mode_ext={column,bar_begin}锛宼ime[]={beat,bpm}锛孊GM 甯?vol
+  //   鏂硅█ B锛堟剾灞炴€э級锛? 椤跺眰鍙湁 meta/time/note锛宮eta 鏃?$ver/time 浣嗘湁 aimode锛?  //                       song 甯?file/bpm锛宮ode_ext 澶?speed锛宼ime[] 澶?delay锛孊GM 涓嶅甫 vol
+  // 榛樿杈撳嚭鏂硅█ A锛堝凡琚疄闄呭鍏ラ獙璇侊級锛屽苟棰濆琛ヤ笂鏂硅█ B 鐨?song.file/song.bpm
+  // 鈥斺€?杩欎袱涓敭鍦?song 閲岋紝鏂硅█ A 鐨勮鍙栧櫒浼氬拷鐣ワ紝浣嗘柟瑷€ B 鐨勮鍙栧櫒鍙兘闈犲畠瀹氫綅闊抽銆?  const style = ctx.mcStyle === 'minimal' ? 'minimal' : 'full';
   if (style === 'minimal') {
-    // 方言 B 的 time[] 每条都带 delay
+    // 鏂硅█ B 鐨?time[] 姣忔潯閮藉甫 delay
     for (const t of timeArr) t.delay = 0;
   }
   const audioRef = baseName(ctx.audioName || g['AudioFilename'] || '');
@@ -957,9 +900,8 @@ export function osuToMc(osu, ctx = {}) {
   if (titleOrg && titleOrg !== title) song.titleorg = titleOrg;
   if (artistOrg && artistOrg !== artist) song.artistorg = artistOrg;
   if (style === 'minimal') {
-    // song.file / song.bpm 只有方言 B 用。实测 Malody 4.3.7（61 个 .mc 中 0 个）
-    // 与 MalodyV（已成功导入本工具的方言 A 产物）都不需要，故默认不写。
-    song.file = audioRef;
+    // song.file / song.bpm 鍙湁鏂硅█ B 鐢ㄣ€傚疄娴?Malody 4.3.7锛?1 涓?.mc 涓?0 涓級
+    // 涓?MalodyV锛堝凡鎴愬姛瀵煎叆鏈伐鍏风殑鏂硅█ A 浜х墿锛夐兘涓嶉渶瑕侊紝鏁呴粯璁や笉鍐欍€?    song.file = audioRef;
     song.bpm = baseBpm;
   }
 
@@ -979,12 +921,12 @@ export function osuToMc(osu, ctx = {}) {
     : { column: key, bar_begin: 0, speed: 0 };
   if (style === 'minimal') meta.aimode = '';
 
-  // BGM 事件在 minimal 风格下去掉 vol（方言 B 的形态）
+  // BGM 浜嬩欢鍦?minimal 椋庢牸涓嬪幓鎺?vol锛堟柟瑷€ B 鐨勫舰鎬侊級
   if (style === 'minimal') delete notes[notes.length - 1].vol;
 
   const mc = { meta, time: timeArr, note: notes };
   if (style === 'full') {
-    // 绿线 (SV) 映射为 Malody effect[]：{ beat, scroll }
+    // 缁跨嚎 (SV) 鏄犲皠涓?Malody effect[]锛歿 beat, scroll }
     const effect = greens.map((g) => ({
       beat: toBeatArray(tempo.toBeat(g.time) + shift, denom),
       scroll: round6(g.scroll),
@@ -1017,9 +959,9 @@ export function osuToMc(osu, ctx = {}) {
   };
 }
 
-/** 取路径的文件名部分（保留原始大小写） */
+/** 鍙栬矾寰勭殑鏂囦欢鍚嶉儴鍒嗭紙淇濈暀鍘熷澶у皬鍐欙級 */
 const baseName = (s) => String(s || '').replace(/\\/g, '/').split('/').pop();
-/** 仅用于大小写不敏感的比对 */
+/** 浠呯敤浜庡ぇ灏忓啓涓嶆晱鎰熺殑姣斿 */
 const norm = (s) => baseName(s).toLowerCase();
 
 function findEntry(names, wanted) {
@@ -1030,55 +972,52 @@ function findEntry(names, wanted) {
 }
 
 /**
- * .osz（或任何含 .osu 的 zip）→ .mcz
- * 按键数分组：同键数的难度打进同一个 .mcz（混键数会拆成多个包）
- */
+ * .osz锛堟垨浠讳綍鍚?.osu 鐨?zip锛夆啋 .mcz
+ * 鎸夐敭鏁板垎缁勶細鍚岄敭鏁扮殑闅惧害鎵撹繘鍚屼竴涓?.mcz锛堟贩閿暟浼氭媶鎴愬涓寘锛? */
 export async function convertOszToMcz(input, opts = {}) {
   const files = await readZip(input);
   const names = [...files.keys()].filter((n) => !files.get(n).dir && !n.endsWith('/'));
   const osuNames = names.filter((n) => /\.osu$/i.test(n));
-  if (!osuNames.length) throw new Error('压缩包里没有找到 .osu 谱面文件');
+  if (!osuNames.length) throw new Error('鍘嬬缉鍖呴噷娌℃湁鎵惧埌 .osu 璋遍潰鏂囦欢');
 
   const dec = new TextDecoder('utf-8');
   const parsed = [];
   const warnings = [];
   let nonMania = 0;
 
-  // 包里混进了 Malody 谱面（例如有人把 .mc / .mcz 塞进 .osz）：
-  // 它们不是 osu! 谱面，会被静默忽略，这里显式提示，免得用户以为已经转换成功。
-  const foreignMc = names.filter((n) => /\.(mc|mcz)$/i.test(n));
+  // 鍖呴噷娣疯繘浜?Malody 璋遍潰锛堜緥濡傛湁浜烘妸 .mc / .mcz 濉炶繘 .osz锛夛細
+  // 瀹冧滑涓嶆槸 osu! 璋遍潰锛屼細琚潤榛樺拷鐣ワ紝杩欓噷鏄惧紡鎻愮ず锛屽厤寰楃敤鎴蜂互涓哄凡缁忚浆鎹㈡垚鍔熴€?  const foreignMc = names.filter((n) => /\.(mc|mcz)$/i.test(n));
   if (foreignMc.length) {
     warnings.push(
-      `包里有 ${briefList(foreignMc)}：不是 osu! 谱面（.osz 只转换 .osu），已跳过。` +
-        `如需转换 Malody 谱面，请把 .mcz / .mc 单独作为输入。`
+      `鍖呴噷鏈?${briefList(foreignMc)}锛氫笉鏄?osu! 璋遍潰锛?osz 鍙浆鎹?.osu锛夛紝宸茶烦杩囥€俙 +
+        `濡傞渶杞崲 Malody 璋遍潰锛岃鎶?.mcz / .mc 鍗曠嫭浣滀负杈撳叆銆俙
     );
   }
   for (const n of osuNames) {
     try {
       const osu = parseOsu(dec.decode(files.get(n).data));
-      // Malody 的「键模式」只对应 osu!mania；其他模式跳过而不是让整批失败
+      // Malody 鐨勩€岄敭妯″紡銆嶅彧瀵瑰簲 osu!mania锛涘叾浠栨ā寮忚烦杩囪€屼笉鏄鏁存壒澶辫触
       if (parseInt(osu.general['Mode'] || '0', 10) !== 3) {
         nonMania++;
         continue;
       }
       parsed.push({ name: n, osu });
     } catch (e) {
-      warnings.push(`${n}: 解析失败（${e.message}）`);
+      warnings.push(`${n}: 瑙ｆ瀽澶辫触锛?{e.message}锛塦);
     }
   }
   if (nonMania) {
-    warnings.push(`跳过 ${nonMania} 个非 osu!mania 谱面（Malody 键模式对应 osu!mania，即 Mode: 3）`);
+    warnings.push(`璺宠繃 ${nonMania} 涓潪 osu!mania 璋遍潰锛圡alody 閿ā寮忓搴?osu!mania锛屽嵆 Mode: 3锛塦);
   }
-  if (!parsed.length) throw new Error('压缩包里没有可转换的 osu!mania 谱面（需要 Mode: 3）');
+  if (!parsed.length) throw new Error('鍘嬬缉鍖呴噷娌℃湁鍙浆鎹㈢殑 osu!mania 璋遍潰锛堥渶瑕?Mode: 3锛?);
 
-  // 按键数分组
-  const groups = new Map();
+  // 鎸夐敭鏁板垎缁?  const groups = new Map();
   for (const p of parsed) {
     let key = 4;
     try {
       key = Math.round(parseFloat(p.osu.difficulty['CircleSize']) || 4);
     } catch (e) {
-      /* 保持默认 */
+      /* 淇濇寔榛樿 */
     }
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
@@ -1093,16 +1032,15 @@ export async function convertOszToMcz(input, opts = {}) {
     const charts = [];
     const nowSec = opts.nowSeconds || now;
     let ts = nowSec;
-    const groupWarnings = []; // 本组的警告，只出现在本 package 的 report 里
 
     for (const p of list) {
-      // 该谱面的音频 / 背景，必须真实存在于包里
+      // 璇ヨ氨闈㈢殑闊抽 / 鑳屾櫙锛屽繀椤荤湡瀹炲瓨鍦ㄤ簬鍖呴噷
       const audioWanted = p.osu.general['AudioFilename'] || '';
       const audioEntry = findEntry(names, audioWanted);
       const bgWanted = p.osu.background || '';
       const bgEntry = findEntry(names, bgWanted);
 
-      if (!audioEntry) groupWarnings.push(`${p.name}: 找不到音频 ${audioWanted || '(未指定)'}`);
+      if (!audioEntry) warnings.push(`${p.name}: 鎵句笉鍒伴煶棰?${audioWanted || '(鏈寚瀹?'}`);
 
       const { mc, stats } = osuToMc(p.osu, {
         audioName: audioEntry ? baseName(audioEntry) : baseName(audioWanted),
@@ -1114,12 +1052,12 @@ export async function convertOszToMcz(input, opts = {}) {
       });
 
       if (stats.beatShift > 0) {
-        groupWarnings.push(
-          `${p.name}: 有音符早于首个 BPM 点，已整体后移 ${stats.beatShift} 拍（整数小节，保持小节线对齐）`
+        warnings.push(
+          `${p.name}: 鏈夐煶绗︽棭浜庨涓?BPM 鐐癸紝宸叉暣浣撳悗绉?${stats.beatShift} 鎷嶏紙鏁存暟灏忚妭锛屼繚鎸佸皬鑺傜嚎瀵归綈锛塦
         );
       }
       if (stats.minSection < 0) {
-        groupWarnings.push(`${p.name}: 仍存在负小节 ${stats.minSection}，Malody 里可能需要手动调整`);
+        warnings.push(`${p.name}: 浠嶅瓨鍦ㄨ礋灏忚妭 ${stats.minSection}锛孧alody 閲屽彲鑳介渶瑕佹墜鍔ㄨ皟鏁碻);
       }
 
       ts += 1;
@@ -1142,7 +1080,7 @@ export async function convertOszToMcz(input, opts = {}) {
       report: {
         key,
         charts,
-        warnings: [], // 每个 package 只记录本次分组内的警告，避免跨包警告混淆
+        warnings: warnings.filter(() => true),
         mczName: list[0].name.replace(/\.osu$/i, '').replace(/.*[\\/]/, '') || 'converted',
       },
     });

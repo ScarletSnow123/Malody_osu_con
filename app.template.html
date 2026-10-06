@@ -284,8 +284,10 @@ async function handleFolder(files) {
   const picked = files.filter((f) => /\.osu$/i.test(f.name) || AUDIO_RE.test(f.name) || IMAGE_RE.test(f.name));
   const packs = files.filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
 
-  // 没有 .osu → 当成「装满谱面包的文件夹」，逐个转换（两个方向都支持）
-  if (!picked.some((f) => /\.osu$/i.test(f.name))) {
+  // 文件夹里既有 .osu 又有谱面包：分别处理，别把包静默丢了
+  if (picked.some((f) => /\.osu$/i.test(f.name))) {
+    log('文件夹：共 ' + files.length + ' 个文件，其中 osu! 部分 ' + picked.length + ' 个，谱面包 ' + packs.length + ' 个', 'ok');
+  } else {
     if (!packs.length) {
       log('这个文件夹里既没有 .osu，也没有 .mcz / .osz / .zip', 'err');
       return;
@@ -295,17 +297,27 @@ async function handleFolder(files) {
     return;
   }
 
-  log('文件夹：共 ' + files.length + ' 个文件，其中可用 ' + picked.length + ' 个', 'ok');
+  // 只把 osu 歌曲文件（.osu + 音频/图片）打包，保留子目录结构
+  const songFiles = picked.filter((f) => /\.osu$/i.test(f.name) || AUDIO_RE.test(f.name) || IMAGE_RE.test(f.name));
+  log('文件夹：共 ' + files.length + ' 个文件，其中可用 ' + songFiles.length + ' 个', 'ok');
   const entries = [];
-  for (const f of picked) entries.push({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+  for (const f of songFiles) {
+    const rel = f.webkitRelativePath || f.name;
+    entries.push({ name: rel.replace(/^[\\/]/, ''), data: new Uint8Array(await f.arrayBuffer()) });
+  }
   const zip = await writeZip(entries, { compress: true });
-  const folderName = (picked[0].webkitRelativePath || 'converted').split('/')[0].replace(/[\\/:*?"<>|]/g, '_');
+  const folderName = (songFiles[0]?.webkitRelativePath || 'converted').split('/')[0].replace(/[\\/:*?"<>|]/g, '_');
   log('  已打包 ' + fmtSize(zip.length) + '，开始转换…');
   try {
     await emitMcz(zip, folderName, { key: keyOpt, shiftMs, compress, noSync }, 0);
   } catch (e) {
     log('  失败: ' + (e && e.message ? e.message : e), 'err');
     console.error(e);
+  }
+  // 同时转换该文件夹里的谱面包（两个方向都支持）
+  if (packs.length) {
+    log('  该文件夹还有 ' + packs.length + ' 个谱面包，单独转换…', 'ok');
+    await handle(packs);
   }
 }
 

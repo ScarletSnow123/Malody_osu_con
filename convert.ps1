@@ -1,4 +1,4 @@
-﻿# Malody <-> osu!mania 转换器 —— 拖放 / 双击启动
+# Malody <-> osu!mania 转换器 —— 拖放 / 双击启动
 #
 # 用法：
 #   1) 把 .mcz / .osz / .zip / .osu 文件，或 osu! 歌曲文件夹，拖到「转换.bat」上
@@ -94,18 +94,13 @@ foreach ($raw in $Paths) {
         default { $out = Join-Path $OutDir $safe }   # 目录 / .osz / .zip → cli 会补 .mcz
     }
 
-    $before = @(Get-ChildItem -LiteralPath $OutDir -File -ErrorAction SilentlyContinue |
-        Select-Object -ExpandProperty FullName)
-
     & $Node $Cli $p -o $out
     if ($LASTEXITCODE -ne 0) {
         Fail "转换失败（退出码 $LASTEXITCODE）"
         continue
     }
 
-    $after = @(Get-ChildItem -LiteralPath $OutDir -File -ErrorAction SilentlyContinue |
-        Where-Object { $before -notcontains $_.FullName })
-    if ($after.Count -eq 0) { Warn '没有生成新文件'; continue }
+    if (-not (Test-Path -LiteralPath $out)) { Warn '没有生成新文件'; continue }
     foreach ($f in $after) {
         Ok ("已生成  {0}   ({1} MB)" -f $f.Name, [math]::Round($f.Length / 1MB, 2))
         $produced += $f.FullName

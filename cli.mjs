@@ -252,9 +252,20 @@ if (st.isDirectory()) {
     console.log('共 ' + targets.length + ' 项待转换，输出目录: ' + outDir);
     let done = 0;
     let failed = 0;
-    for (const t of targets) {
+    const usedOutNames = new Set();
+function uniqueOutName(base) {
+  const safe = base.replace(/[\\/:*?"<>|]/g, '_');
+  if (!usedOutNames.has(safe)) { usedOutNames.add(safe); return safe; }
+  const [n, ...rest] = safe.split('_');
+  const num = rest.length ? Number(rest.join('_')) + 1 : 1;
+  const dup = `${n}_${num}`;
+  usedOutNames.add(dup);
+  return dup;
+}
+
+for (const t of targets) {
       const name = t.type === 'songdir' ? basename(t.dir) : basename(t.path).replace(/\.[^.]+$/, '');
-      const safe = name.replace(/[\\/:*?"<>|]/g, '_');
+      const safe = uniqueOutName(name);
       console.log('');
       console.log('[' + (++done) + '/' + targets.length + '] ' + t.type + '  ' + (t.dir || t.path));
       try {
