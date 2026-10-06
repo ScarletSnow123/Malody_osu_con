@@ -42,6 +42,15 @@ Switch "Output style" to "Minimal" (CLI: `--mc-style minimal`) and retry.
 
 Click "Allow multiple files". This is a browser setting, not a converter bug.
 
+## The web app downloads the `.mcz` when I drag it in
+
+Open `OsuToMalody.html` first (double-click it), then drag the `.mcz` onto the **open page** —
+the dashed drop box or anywhere on the page (a full-page hint appears while dragging). Don't
+drag the file onto the `OsuToMalody.html` icon in the file manager; that only opens the page
+and never hands the file over. If it still downloads after dropping onto the page, your copy
+is likely an older build whose script errored out before its handlers were attached — rebuild
+or grab the latest `OsuToMalody.html`.
+
 ## Do I need an internet connection?
 
 No. Everything runs locally and offline — the web app never uploads any file.
