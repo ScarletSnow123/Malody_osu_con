@@ -104,7 +104,7 @@ async function convertSongDir(dir, outBase, verbose) {
 }
 
 /** 转换单个文件（.mcz / .osz / .zip / .osu）。outBase 为不含扩展名的输出前缀 */
-async function convertOneFile(srcPath, outBase, verbose) {
+async function convertOneFile(srcPath, outBase, verbose, explicitOut) {
   const ext = extname(srcPath).toLowerCase();
   const produced = [];
 
@@ -181,7 +181,7 @@ async function convertOneFile(srcPath, outBase, verbose) {
       noSync: convOpts.noSync,
       keyOverride: args.key,
     });
-    const outPath = outBase + '.osu';
+    const outPath = (explicitOut ? outBase : join(dirname(outBase), osuName)) + '.osu';
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, res.text);
     if (verbose) {
@@ -287,7 +287,13 @@ for (const t of targets) {
     process.exit(2);
   }
   const outBase = args.output ? stripKnownExt(resolve(args.output)) : stripKnownExt(inputPath);
-  await convertOneFile(inputPath, outBase, true);
+  try {
+    await convertOneFile(inputPath, outBase, true, !!args.output);
+  } catch (e) {
+    // 单文件模式给出干净的错误信息，而不是抛裸堆栈
+    console.error('转换失败: ' + (e && e.message ? e.message : e));
+    process.exit(1);
+  }
 }
 
 console.log('');

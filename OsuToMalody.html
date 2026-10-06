@@ -367,6 +367,10 @@ function parseBeat(a) {
 class TempoMap {
   constructor(timeList) {
     const pts = [];
+    // time 字段必须是数组；写成对象/数字时给出可读的错误，而不是 "is not iterable"
+    if (timeList != null && !Array.isArray(timeList)) {
+      throw new Error('Malody 谱面的 time 字段必须是数组，实际是 ' + typeof timeList);
+    }
     for (const t of timeList || []) {
       const b = parseBeat(t && t.beat);
       const bpm = Number(t && t.bpm);
@@ -506,8 +510,11 @@ function convertMcToOsu(mc, ctx = {}) {
     if (n.sound) hit.sound = n.sound; // 普通音符的自定义 sample → osu HitObject extras
     if (endBeat !== null && endBeat > beat) {
       const tEnd = Math.round(tempo.toMs(endBeat) + timeShift);
-      hit.type = 128;
-      hit.end = tEnd;
+      // 亚毫秒长按会被四舍五入压成 0 时长；osu! 里 0 时长 hold 无效，降级为普通音符
+      if (tEnd > t) {
+        hit.type = 128;
+        hit.end = tEnd;
+      }
     }
     notes.push(hit);
   }
@@ -1197,12 +1204,16 @@ async function convertOszToMcz(input, opts = {}) {
   }
   if (!parsed.length) throw new Error('压缩包里没有可转换的 osu!mania 谱面（需要 Mode: 3）');
 
-  // 按键数分组
+  // 按键数分组（与 osuToMc 的 [1,18] clamp 保持一致，否则组标签与实际列数会对不上）
   const groups = new Map();
+  const clampKey = (raw) => Math.max(1, Math.min(18, Math.round(raw)));
   for (const p of parsed) {
     let key = 4;
     try {
-      key = Math.round(parseFloat(p.osu.difficulty['CircleSize']) || 4);
+      key = clampKey(Number(p.osu.difficulty['CircleSize']) || 4);
+      if (Math.round(Number(p.osu.difficulty['CircleSize']) || 4) > 18) {
+        warnings.push(`${p.name}: 键数 ${p.osu.difficulty['CircleSize']} 超出 Malody 上限，已按 18K 转换`);
+      }
     } catch (e) {
       /* 保持默认 */
     }
