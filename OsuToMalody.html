@@ -738,15 +738,32 @@ async function convertMczToOsz(input, opts = {}) {
     return false;
   };
 
-  const audioBase = audioName ? audioName.split(/[\\/]/).pop() : '';
-  const bgBase = bgName ? bgName.split(/[\\/]/).pop() : '';
+  // 收集所有被引用的音频/背景（多难度可能各自不同）
+  const audioBases = new Set();
+  const bgBases = new Set();
+  for (const mcName of mcNames) {
+    let mc;
+    try { mc = JSON.parse(dec.decode(files.get(mcName).data)); } catch { continue; }
+    const meta = mc.meta || {};
+    for (const n of mc.note || []) {
+      if (n && parseInt(n.type, 10) === 1 && n.sound) audioBases.add(String(n.sound).split(/[\\/]/).pop());
+    }
+    if (meta.background) bgBases.add(String(meta.background).split(/[\\/]/).pop());
+  }
 
-  if (audioBase && packIn(audioBase)) report.audio = audioBase;
-  else report.warnings.push('没有打包进音频文件，osu! 里将没有声音');
+  for (const a of audioBases) {
+    if (packIn(a)) report.audio = a;
+  }
+  if (!report.audio) report.warnings.push('没有打包进音频文件，osu! 里将没有声音');
 
-  if (bgBase && packIn(bgBase)) report.background = bgBase;
-  else if (imageNames.length && packIn(imageNames[0])) report.background = imageNames[0].split(/[\\/]/).pop();
-  else report.warnings.push('没有打包进背景图');
+  for (const b of bgBases) {
+    if (packIn(b)) report.background = b;
+  }
+  if (!report.background && imageNames.length) {
+    report.background = imageNames[0].split(/[\\/]/).pop();
+    packIn(report.background);
+  }
+  if (!report.background) report.warnings.push('没有打包进背景图');
 
   const osz = await writeZip(outEntries, { compress: opts.compress });
   return { data: osz, report, entries: outEntries };
@@ -966,7 +983,7 @@ function osuToMc(osu, ctx = {}) {
   }
   raw.sort((a, b) => a.ms - b.ms || a.col - b.col);
 
-  // ---- 若存在早于首个 BPM 点的音符，整体平移「整数个小节」 ----
+  // ---- 若存在早于首个 BPM 点的音符或绿线，整体平移「整数个小节」----
   // osu! 对首个红线之前的区间沿用同一 BPM，而 Malody 的小节索引不应为负
   // （[-1,0,0] 是 Malody 的 EmptyBeat 哨兵）。平移整小节可保持小节线对齐。
   // 注意：先量化再判断——极小的负拍会被 1/288 量化直接吸附到 0，无需平移。
@@ -974,9 +991,12 @@ function osuToMc(osu, ctx = {}) {
   const isNeg = (b) => toBeatArray(b, denom)[0] < 0;
   let needShift = false;
   for (const r of raw) {
-    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) {
-      needShift = true;
-      break;
+    if (isNeg(r.b) || (r.eb != null && isNeg(r.eb))) { needShift = true; break; }
+  }
+  // 绿线（SV）也要计入：绿线在首个红线之前时会落到负小节
+  if (!needShift) {
+    for (const g of greens) {
+      if (isNeg(tempo.toBeat(g.time))) { needShift = true; break; }
     }
   }
   let minBeat = 0;
@@ -984,6 +1004,10 @@ function osuToMc(osu, ctx = {}) {
     for (const r of raw) {
       if (r.b < minBeat) minBeat = r.b;
       if (r.eb != null && r.eb < minBeat) minBeat = r.eb;
+    }
+    for (const g of greens) {
+      const gb = tempo.toBeat(g.time);
+      if (gb < minBeat) minBeat = gb;
     }
   }
   const shift = needShift ? Math.ceil(-minBeat / firstMeter) * firstMeter : 0;
@@ -1143,6 +1167,7 @@ async function convertOszToMcz(input, opts = {}) {
   const dec = new TextDecoder('utf-8');
   const parsed = [];
   const warnings = [];
+  const groupWarningsAll = []; // 每组警告的集合，最后附加到全局 warnings
   let nonMania = 0;
 
   // 包里混进了 Malody 谱面（例如有人把 .mc / .mcz 塞进 .osz）：
@@ -1194,6 +1219,7 @@ async function convertOszToMcz(input, opts = {}) {
     const charts = [];
     const nowSec = opts.nowSeconds || now;
     let ts = nowSec;
+    const groupWarnings = []; // 本组的警告，只出现在本 package 的 report 里
 
     for (const p of list) {
       // 该谱面的音频 / 背景，必须真实存在于包里
@@ -1202,7 +1228,7 @@ async function convertOszToMcz(input, opts = {}) {
       const bgWanted = p.osu.background || '';
       const bgEntry = findEntry(names, bgWanted);
 
-      if (!audioEntry) warnings.push(`${p.name}: 找不到音频 ${audioWanted || '(未指定)'}`);
+      if (!audioEntry) groupWarnings.push(`${p.name}: 找不到音频 ${audioWanted || '(未指定)'}`);
 
       const { mc, stats } = osuToMc(p.osu, {
         audioName: audioEntry ? baseName(audioEntry) : baseName(audioWanted),
@@ -1214,12 +1240,12 @@ async function convertOszToMcz(input, opts = {}) {
       });
 
       if (stats.beatShift > 0) {
-        warnings.push(
+        groupWarnings.push(
           `${p.name}: 有音符早于首个 BPM 点，已整体后移 ${stats.beatShift} 拍（整数小节，保持小节线对齐）`
         );
       }
       if (stats.minSection < 0) {
-        warnings.push(`${p.name}: 仍存在负小节 ${stats.minSection}，Malody 里可能需要手动调整`);
+        groupWarnings.push(`${p.name}: 仍存在负小节 ${stats.minSection}，Malody 里可能需要手动调整`);
       }
 
       ts += 1;
@@ -1242,10 +1268,11 @@ async function convertOszToMcz(input, opts = {}) {
       report: {
         key,
         charts,
-        warnings: warnings.filter(() => true),
+        warnings: groupWarningsAll, // 本组的警告，只出现在本 package 的 report 里
         mczName: list[0].name.replace(/\.osu$/i, '').replace(/.*[\\/]/, '') || 'converted',
       },
     });
+    groupWarningsAll.push(...groupWarnings);
   }
 
   return { packages, warnings };
@@ -1410,8 +1437,10 @@ async function handleFolder(files) {
   const picked = files.filter((f) => /\.osu$/i.test(f.name) || AUDIO_RE.test(f.name) || IMAGE_RE.test(f.name));
   const packs = files.filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
 
-  // 没有 .osu → 当成「装满谱面包的文件夹」，逐个转换（两个方向都支持）
-  if (!picked.some((f) => /\.osu$/i.test(f.name))) {
+  // 文件夹里既有 .osu 又有谱面包：分别处理，别把包静默丢了
+  if (picked.some((f) => /\.osu$/i.test(f.name))) {
+    log('文件夹：共 ' + files.length + ' 个文件，其中 osu! 部分 ' + picked.length + ' 个，谱面包 ' + packs.length + ' 个', 'ok');
+  } else {
     if (!packs.length) {
       log('这个文件夹里既没有 .osu，也没有 .mcz / .osz / .zip', 'err');
       return;
@@ -1421,17 +1450,27 @@ async function handleFolder(files) {
     return;
   }
 
-  log('文件夹：共 ' + files.length + ' 个文件，其中可用 ' + picked.length + ' 个', 'ok');
+  // 只把 osu 歌曲文件（.osu + 音频/图片）打包，保留子目录结构
+  const songFiles = picked.filter((f) => /\.osu$/i.test(f.name) || AUDIO_RE.test(f.name) || IMAGE_RE.test(f.name));
+  log('文件夹：共 ' + files.length + ' 个文件，其中可用 ' + songFiles.length + ' 个', 'ok');
   const entries = [];
-  for (const f of picked) entries.push({ name: f.name, data: new Uint8Array(await f.arrayBuffer()) });
+  for (const f of songFiles) {
+    const rel = f.webkitRelativePath || f.name;
+    entries.push({ name: rel.replace(/^[\\/]/, ''), data: new Uint8Array(await f.arrayBuffer()) });
+  }
   const zip = await writeZip(entries, { compress: true });
-  const folderName = (picked[0].webkitRelativePath || 'converted').split('/')[0].replace(/[\\/:*?"<>|]/g, '_');
+  const folderName = (songFiles[0]?.webkitRelativePath || 'converted').split('/')[0].replace(/[\\/:*?"<>|]/g, '_');
   log('  已打包 ' + fmtSize(zip.length) + '，开始转换…');
   try {
     await emitMcz(zip, folderName, { key: keyOpt, shiftMs, compress, noSync }, 0);
   } catch (e) {
     log('  失败: ' + (e && e.message ? e.message : e), 'err');
     console.error(e);
+  }
+  // 同时转换该文件夹里的谱面包（两个方向都支持）
+  if (packs.length) {
+    log('  该文件夹还有 ' + packs.length + ' 个谱面包，单独转换…', 'ok');
+    await handle(packs);
   }
 }
 
