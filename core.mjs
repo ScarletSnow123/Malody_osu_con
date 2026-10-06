@@ -1042,6 +1042,7 @@ export async function convertOszToMcz(input, opts = {}) {
   const dec = new TextDecoder('utf-8');
   const parsed = [];
   const warnings = [];
+  const groupWarningsAll = []; // 每组警告的集合，最后附加到全局 warnings
   let nonMania = 0;
 
   // 包里混进了 Malody 谱面（例如有人把 .mc / .mcz 塞进 .osz）：
@@ -1142,10 +1143,11 @@ export async function convertOszToMcz(input, opts = {}) {
       report: {
         key,
         charts,
-        warnings: [], // 每个 package 只记录本次分组内的警告，避免跨包警告混淆
+        warnings: groupWarningsAll, // 本组的警告，只出现在本 package 的 report 里
         mczName: list[0].name.replace(/\.osu$/i, '').replace(/.*[\\/]/, '') || 'converted',
       },
     });
+    groupWarningsAll.push(...groupWarnings);
   }
 
   return { packages, warnings };
