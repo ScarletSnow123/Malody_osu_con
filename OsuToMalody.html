@@ -50,6 +50,12 @@
               border: 1px solid #666666; background: #eeeeee; color: #000000; text-decoration: none; }
   .res a.dl:hover { background: #dddddd; }
   .hidden { display: none; }
+  /* 全页拖放覆盖层：把文件拖到页面任意位置都提示可松开，避免浏览器默认下载 */
+  #overlay { position: fixed; inset: 0; z-index: 9999; display: none;
+             align-items: center; justify-content: center;
+             background: rgba(255, 255, 255, 0.92); border: 3px dashed #006600; }
+  #overlay.show { display: flex; }
+  #overlay .msg { font-size: 20px; color: #006600; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -113,6 +119,8 @@
     <div id="log"><div class="line dim">就绪。</div></div>
   </div>
 </div>
+
+<div id="overlay"><div class="msg">松开以转换该文件</div></div>
 
 <script type="module">
 /**
@@ -182,7 +190,7 @@ const READ_LIMITS = {
   maxTotalBytes: 4 * 1024 * 1024 * 1024, // 整包解压后合计 ≤ 4 GB
 };
 
-function fmtSize(n) {
+function fmtBytes(n) {
   if (n >= 1024 * 1024 * 1024) return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
   if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
   return (n / 1024).toFixed(1) + ' KB';
@@ -224,7 +232,7 @@ async function readZip(input) {
     // 先用中央目录里声明的大小做一次廉价检查，不必等真解压出来才发现是炸弹
     if (uncompSize > READ_LIMITS.maxEntryBytes || total + uncompSize > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，声明 ${fmtSize(uncompSize)}），已拒绝处理以防解压炸弹`
+        `ZIP 条目解压后过大（${name}，声明 ${fmtBytes(uncompSize)}），已拒绝处理以防解压炸弹`
       );
     }
 
@@ -247,7 +255,7 @@ async function readZip(input) {
     // 声明的大小可能是假的，解压后再按真实长度核一次
     if (data.length > READ_LIMITS.maxEntryBytes || total + data.length > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，实际 ${fmtSize(data.length)}），已拒绝处理以防解压炸弹`
+        `ZIP 条目解压后过大（${name}，实际 ${fmtBytes(data.length)}），已拒绝处理以防解压炸弹`
       );
     }
     total += data.length;
@@ -1308,19 +1316,32 @@ $('dir').addEventListener('change', () => {
   $('dir').value = '';
   if (fs.length) handleFolder(fs);
 });
+// 拖放处理：拖到虚线框或页面上任意位置都能触发；先 preventDefault 兜底，
+// 避免浏览器默认行为（把未知类型文件直接下载 / 打开）抢先执行。
+const overlayEl = $('overlay');
+const overlayShow = () => overlayEl.classList.add('show');
+const overlayHide = () => overlayEl.classList.remove('show');
+
+function handleDropped(ev) {
+  const fs = [...ev.dataTransfer.files].filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
+  if (!fs.length) { log('拖进来的文件不是 .mcz / .osz / .zip', 'err'); return; }
+  handle(fs);
+}
+
 ['dragenter', 'dragover'].forEach((e) =>
   dropEl.addEventListener(e, (ev) => { ev.preventDefault(); dropEl.classList.add('over'); }));
 ['dragleave', 'dragend'].forEach((e) =>
   dropEl.addEventListener(e, () => dropEl.classList.remove('over')));
 dropEl.addEventListener('drop', (ev) => {
-  ev.preventDefault();
+  ev.preventDefault(); ev.stopPropagation();
   dropEl.classList.remove('over');
-  const fs = [...ev.dataTransfer.files].filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
-  if (!fs.length) { log('拖进来的文件不是 .mcz / .osz / .zip', 'err'); return; }
-  handle(fs);
+  handleDropped(ev);
 });
+
+window.addEventListener('dragenter', (e) => { e.preventDefault(); overlayShow(); });
 window.addEventListener('dragover', (e) => e.preventDefault());
-window.addEventListener('drop', (e) => e.preventDefault());
+window.addEventListener('dragleave', (e) => { if (e.target === document.documentElement) overlayHide(); });
+window.addEventListener('drop', (e) => { e.preventDefault(); overlayHide(); handleDropped(e); });
 
 async function handle(files) {
   const keyOpt = $('key').value ? Number($('key').value) : null;

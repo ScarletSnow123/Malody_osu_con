@@ -50,6 +50,12 @@
               border: 1px solid #666666; background: #eeeeee; color: #000000; text-decoration: none; }
   .res a.dl:hover { background: #dddddd; }
   .hidden { display: none; }
+  /* 全页拖放覆盖层：把文件拖到页面任意位置都提示可松开，避免浏览器默认下载 */
+  #overlay { position: fixed; inset: 0; z-index: 9999; display: none;
+             align-items: center; justify-content: center;
+             background: rgba(255, 255, 255, 0.92); border: 3px dashed #006600; }
+  #overlay.show { display: flex; }
+  #overlay .msg { font-size: 20px; color: #006600; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -113,6 +119,8 @@
     <div id="log"><div class="line dim">就绪。</div></div>
   </div>
 </div>
+
+<div id="overlay"><div class="msg">松开以转换该文件</div></div>
 
 <script type="module">
 /*__CORE__*/
@@ -182,19 +190,32 @@ $('dir').addEventListener('change', () => {
   $('dir').value = '';
   if (fs.length) handleFolder(fs);
 });
+// 拖放处理：拖到虚线框或页面上任意位置都能触发；先 preventDefault 兜底，
+// 避免浏览器默认行为（把未知类型文件直接下载 / 打开）抢先执行。
+const overlayEl = $('overlay');
+const overlayShow = () => overlayEl.classList.add('show');
+const overlayHide = () => overlayEl.classList.remove('show');
+
+function handleDropped(ev) {
+  const fs = [...ev.dataTransfer.files].filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
+  if (!fs.length) { log('拖进来的文件不是 .mcz / .osz / .zip', 'err'); return; }
+  handle(fs);
+}
+
 ['dragenter', 'dragover'].forEach((e) =>
   dropEl.addEventListener(e, (ev) => { ev.preventDefault(); dropEl.classList.add('over'); }));
 ['dragleave', 'dragend'].forEach((e) =>
   dropEl.addEventListener(e, () => dropEl.classList.remove('over')));
 dropEl.addEventListener('drop', (ev) => {
-  ev.preventDefault();
+  ev.preventDefault(); ev.stopPropagation();
   dropEl.classList.remove('over');
-  const fs = [...ev.dataTransfer.files].filter((f) => /\.(mcz|osz|zip)$/i.test(f.name));
-  if (!fs.length) { log('拖进来的文件不是 .mcz / .osz / .zip', 'err'); return; }
-  handle(fs);
+  handleDropped(ev);
 });
+
+window.addEventListener('dragenter', (e) => { e.preventDefault(); overlayShow(); });
 window.addEventListener('dragover', (e) => e.preventDefault());
-window.addEventListener('drop', (e) => e.preventDefault());
+window.addEventListener('dragleave', (e) => { if (e.target === document.documentElement) overlayHide(); });
+window.addEventListener('drop', (e) => { e.preventDefault(); overlayHide(); handleDropped(e); });
 
 async function handle(files) {
   const keyOpt = $('key').value ? Number($('key').value) : null;

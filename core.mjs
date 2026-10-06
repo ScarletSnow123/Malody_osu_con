@@ -65,7 +65,7 @@ export const READ_LIMITS = {
   maxTotalBytes: 4 * 1024 * 1024 * 1024, // 整包解压后合计 ≤ 4 GB
 };
 
-function fmtSize(n) {
+function fmtBytes(n) {
   if (n >= 1024 * 1024 * 1024) return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
   if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
   return (n / 1024).toFixed(1) + ' KB';
@@ -107,7 +107,7 @@ export async function readZip(input) {
     // 先用中央目录里声明的大小做一次廉价检查，不必等真解压出来才发现是炸弹
     if (uncompSize > READ_LIMITS.maxEntryBytes || total + uncompSize > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，声明 ${fmtSize(uncompSize)}），已拒绝处理以防解压炸弹`
+        `ZIP 条目解压后过大（${name}，声明 ${fmtBytes(uncompSize)}），已拒绝处理以防解压炸弹`
       );
     }
 
@@ -130,7 +130,7 @@ export async function readZip(input) {
     // 声明的大小可能是假的，解压后再按真实长度核一次
     if (data.length > READ_LIMITS.maxEntryBytes || total + data.length > READ_LIMITS.maxTotalBytes) {
       throw new Error(
-        `ZIP 条目解压后过大（${name}，实际 ${fmtSize(data.length)}），已拒绝处理以防解压炸弹`
+        `ZIP 条目解压后过大（${name}，实际 ${fmtBytes(data.length)}），已拒绝处理以防解压炸弹`
       );
     }
     total += data.length;
